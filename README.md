@@ -5,7 +5,7 @@ A far-from-complete Java Virtual Machine made in Rust
 
 At this point it is a very primitive JVM. The `Hello.java` and `Arithm.java` show what is currently being supported.
 
-See also the [Bytecode overview](bytecode_overview.md) to have a glimpse of how Java/Scala/Kotlin code are converted into bytecode instructions.
+See also the [Bytecode overview](Bytecode_overview.md) to have a glimpse of how Java/Scala/Kotlin code are converted into bytecode instructions.
 
 ## How to use it
 
