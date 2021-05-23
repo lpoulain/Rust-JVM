@@ -4,6 +4,7 @@ use std::io::Read;
 use std::fs::File;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::path::Path;
 
 use crate::JVM;
 use crate::bytecode::ByteCode;
@@ -18,7 +19,19 @@ pub struct Blob {
 
 impl Blob {
     pub fn new (name: &str) -> Blob {
-        let filename = &name.to_string();
+        let mut filename = &name.to_string();
+        let mut new_path: String = String::from("java/");
+        new_path.push_str(filename);
+        let filename2 = new_path.clone();
+
+        if !Path::new(filename).exists() {
+            if !Path::new(&new_path).exists() {
+                panic!("Cannot find {}", name);
+            }
+
+            filename = &filename2;
+        }
+
         let mut f = File::open(filename).expect("no file found");
         let metadata = fs::metadata(filename).expect("unable to read metadata");
         let mut data = vec![0; metadata.len() as usize];
@@ -297,6 +310,206 @@ impl ConstantNameType {
 }
 
 ///////////////////////////////////////////
+/*
+pub struct ConstantInterfaceMethod {
+    idx_class: usize,
+    idx_name_type: usize,
+    pub class_name: String,
+    pub method_name: String,
+    pub type_name: String
+}
+
+impl ConstantInterfaceMethod {
+    pub fn new (data: &mut Blob) -> ConstantInterfaceMethod {
+        let idx_class = data.get_u16size();
+        let idx_name_type = data.get_u16size();
+
+        ConstantInterfaceMethod {
+            idx_class: idx_class,
+            idx_name_type: idx_name_type,
+            class_name: "".to_string(),
+            method_name: "".to_string(),
+            type_name: "".to_string()
+        }
+    }
+
+    pub fn init(&mut self, classes: &HashMap<usize, ConstantClass>, name_types: &HashMap<usize, ConstantNameType>) {
+        self.class_name = match classes.get(&self.idx_class) {
+            Some(class) => class.name.clone(),
+            _ => "n/a".to_string()
+        };
+        match name_types.get(&self.idx_name_type) {
+            Some(name_type) => {
+                self.method_name = name_type.name.clone();
+                self.type_name = name_type.type_desc.clone();
+            }
+            _ => {}
+        };
+    }
+
+    pub fn print(&self) {
+        println!("Interface method: [{}], Class: [{}], Type: [{}]", self.method_name, self.class_name, self.type_name);
+    }
+}
+*/
+///////////////////////////////////////////
+pub struct ConstantInvokeDynamic {
+    idx_bootstrap_method: usize,
+    idx_name_type: usize,
+    bootstrap_class_name: String,
+    bootstrap_method_name: String,
+    bootstrap_type_name: String,
+    bootstrap_arguments: Vec<usize>,
+    pub class_name: String,
+    pub method_name: String,
+    pub type_name: String
+}
+
+impl ConstantInvokeDynamic {
+    pub fn new (data: &mut Blob) -> ConstantInvokeDynamic {
+        let idx_bootstrap_method = data.get_u16size();
+        let idx_name_type = data.get_u16size();
+
+        ConstantInvokeDynamic {
+            idx_bootstrap_method: idx_bootstrap_method,
+            idx_name_type: idx_name_type,
+            bootstrap_class_name: "".to_string(),
+            bootstrap_method_name: "".to_string(),
+            bootstrap_type_name: "".to_string(),
+            bootstrap_arguments: Vec::new(),
+            class_name: "".to_string(),
+            method_name: "".to_string(),
+            type_name: "".to_string()
+        }
+    }
+
+    pub fn init(&mut self, bootstrap_methods: &Vec<AttributeBootstrapMethod>, name_types: &HashMap<usize, ConstantNameType>) {
+        match bootstrap_methods.get(self.idx_bootstrap_method) {
+            Some(bootstrap) => {
+                self.bootstrap_class_name = bootstrap.class_name.clone();
+                self.bootstrap_method_name = bootstrap.method_name.clone();
+                self.bootstrap_type_name = bootstrap.type_name.clone();
+                for arg in &bootstrap.arguments {
+                    self.bootstrap_arguments.push(*arg);
+                }
+            }
+            _ => panic!("Cannot find bootstrap method {}", self.idx_bootstrap_method)
+        };
+
+        match name_types.get(&self.idx_name_type) {
+            Some(name_type) => {
+                self.method_name = name_type.name.clone();
+                self.type_name = name_type.type_desc.clone();
+            },
+            _ => panic!("Cannot find name/type {}", self.idx_name_type)
+        };
+    }
+
+    pub fn print(&self) {
+        println!("Interface method: [{}], Class: [{}], Type: [{}]", self.method_name, self.class_name, self.type_name);
+    }
+}
+
+///////////////////////////////////////////
+pub struct ConstantMethodHandle {
+    reference_kind: u8,
+    idx_reference: usize,
+    pub class_name: String,
+    pub method_name: String,
+    pub type_name: String,
+    pub field_name: String
+}
+
+impl ConstantMethodHandle {
+    pub fn new (data: &mut Blob) -> ConstantMethodHandle {
+        let reference_kind = data.get_u8();
+        let idx_reference = data.get_u16size();
+
+        ConstantMethodHandle {
+            reference_kind: reference_kind,
+            idx_reference: idx_reference,
+            class_name: "".to_string(),
+            method_name: "".to_string(),
+            type_name: "".to_string(),
+            field_name: "".to_string()
+        }
+    }
+
+    pub fn init(&mut self, constants_field: &HashMap<usize, ConstantField>, constants_method: &HashMap<usize, ConstantMethod>) {
+        match self.reference_kind {
+            1..=4 => {
+                match constants_field.get(&self.idx_reference) {
+                    Some(field) => { self.field_name = field.field_name.clone(); },
+                    _ => panic!("Unknown constant field {}", &self.idx_reference)
+                };
+            },
+            5..=9 => {
+                match constants_method.get(&self.idx_reference) {
+                    Some(method) => {
+                        self.class_name = method.class_name.clone();
+                        self.method_name = method.method_name.clone();
+                        self.type_name = method.type_name.clone();
+                    },
+                    _ => panic!("Unknown constant method {}", self.idx_reference)
+                }
+            },
+            _ => panic!("Unknown Constant MethodHandle reference kind {}", self.reference_kind)
+        };
+    }
+
+    pub fn print(&self) {
+        println!("Method Handle: [{}], Class: [{}], Type: [{}]", self.method_name, self.class_name, self.type_name);
+    }
+}
+
+///////////////////////////////////////////
+pub struct AttributeBootstrapMethod {
+    class_name: String,
+    method_name: String,
+    type_name: String,
+    arguments: Vec<usize>
+}
+
+impl AttributeBootstrapMethod {
+    pub fn new (data: &mut Blob, constants_method_handle: &HashMap<usize, ConstantMethodHandle>) -> AttributeBootstrapMethod {
+        let idx_reference = data.get_u16size();
+        let class_name: String;
+        let method_name: String;
+        let type_name: String;
+
+        match constants_method_handle.get(&idx_reference) {
+            Some(method) => {
+                class_name = method.class_name.clone();
+                method_name = method.method_name.clone();
+                type_name = method.type_name.clone();
+            },
+            _ => panic!("Cannot find method handle {}", idx_reference)
+        };
+
+        let arguments_count = data.get_u16size();
+        let mut arguments: Vec<usize> = Vec::new();
+        for _ in 0..arguments_count {
+            arguments.push(data.get_u16size());
+        }
+
+        AttributeBootstrapMethod {
+            class_name: class_name,
+            method_name: method_name,
+            type_name: type_name,
+            arguments: arguments
+        }
+    }
+
+    pub fn print(&self) {
+        print!("Bootstrap method, class [{}], method [{}], args:[", self.class_name, self.method_name);
+        for arg in &self.arguments {
+            print!("{} ", arg);
+        }
+        println!("]");
+    }
+}
+
+///////////////////////////////////////////
 ///////////////////////////////////////////
 
 pub trait JavaClass {
@@ -315,7 +528,10 @@ pub struct BytecodeClass {
     constants_method: HashMap<usize, ConstantMethod>,
     constants_field: HashMap<usize, ConstantField>,
     constants_name_type: HashMap<usize, ConstantNameType>,
+    constants_method_handle: HashMap<usize, ConstantMethodHandle>,
+    constants_dynamic: HashMap<usize, ConstantInvokeDynamic>,
     methods: HashMap<String, ByteCode>,
+    bootstrap_methods: Vec<AttributeBootstrapMethod>,
     debug: u8
 }
 
@@ -336,36 +552,73 @@ impl BytecodeClass {
         let mut constants_method: HashMap<usize, ConstantMethod> = HashMap::new();
         let mut constants_field: HashMap<usize, ConstantField> = HashMap::new();
         let mut constants_name_type: HashMap<usize, ConstantNameType> = HashMap::new();
+        let mut constants_method_handle: HashMap<usize, ConstantMethodHandle> = HashMap::new();
+        let mut constants_dynamic: HashMap<usize, ConstantInvokeDynamic> = HashMap::new();
 
         while constant_idx < constant_pool_count {
             opcode = data.get_u8();
 
             match opcode {
+                // CONSTANT_Utf8
                 1 => {
                     let constant_string = ConstantString::new(&mut data);
+                    if debug >= 2 { constant_string.print(); }
                     constants_string.insert(constant_idx, constant_string);
                 },
+                // CONSTANT_Class
                 7 => {
                     let constant_class = ConstantClass::new(&mut data);
+                    if debug >= 2 { constant_class.print(); }
                     constants_class.insert(constant_idx, constant_class);
                 },
+                // CONSTANT_String
                 8 => {
                     let constant_string_ref = ConstantStringRef::new(&mut data);
+                    if debug >= 2 { constant_string_ref.print(); }
                     constants_string_ref.insert(constant_idx, constant_string_ref);
                 },
+                // CONSTANT_Fieldref
                 9 => {
                     let constant_field = ConstantField::new(&mut data);
+                    if debug >= 2 { constant_field.print(); }
                     constants_field.insert(constant_idx, constant_field);
                 },
+                // CONSTANT_Methodref
                 10 => {
                     let constant_method = ConstantMethod::new(&mut data);
+                    if debug >= 2 { constant_method.print(); }
                     constants_method.insert(constant_idx, constant_method);
                 },
+                // CONSTANT_InterfaceMethodref
+                11 => {
+                    let constant_method = ConstantMethod::new(&mut data);
+                    if debug >= 2 { constant_method.print(); }
+                    constants_method.insert(constant_idx, constant_method);
+                }
+                // CONSTANT_NameAndType
                 12 => {
                     let constant_name_type = ConstantNameType::new(&mut data);
+                    if debug >= 2 { constant_name_type.print(); }
                     constants_name_type.insert(constant_idx, constant_name_type);
                 },
-                _ => panic!("Unknown upcode {} at offset {}", opcode, data.offset)
+                // CONSTANT_MethodHandle
+                15 => {
+                    let constant_method_handle = ConstantMethodHandle::new(&mut data);
+                    if debug >= 2 { constant_method_handle.print(); }
+                    constants_method_handle.insert(constant_idx, constant_method_handle);
+                },
+                // CONSTANT_MethodType
+                16 => {
+                    data.get_u16size();
+//                    println!("CONSTANT_MethodType {}", a);
+                },
+                // CONSTANT_InvokeDynamic
+                18 => {
+                    let constant_dynamic = ConstantInvokeDynamic::new(&mut data);
+                    if debug >= 2 { constant_dynamic.print(); }
+                    constants_dynamic.insert(constant_idx, constant_dynamic);
+                },
+                _ => panic!("Unknown constant code {} ({:#02x}) at offset {:#x}", opcode, opcode, data.offset)
             };
 
             constant_idx += 1;
@@ -391,6 +644,10 @@ impl BytecodeClass {
             constant_field.init(&constants_class, &constants_name_type);
         }
 
+        for (_, constant_method_handle) in constants_method_handle.iter_mut() {
+            constant_method_handle.init(&constants_field, &constants_method);
+        }
+
         // skip access flags
         data.skip(2);
 
@@ -410,7 +667,7 @@ impl BytecodeClass {
         };
         if debug >= 2 { println!("Super Class {}", constant_super_class.name); }
 
-        // interface_scount
+        // interfaces_count
         let _interfaces_count = data.get_u16size();
 
         // fields_count
@@ -472,8 +729,35 @@ impl BytecodeClass {
         }
 
         // attributes_count
-        let _attributes_count = data.get_u16size();
+        let attributes_count = data.get_u16size();
+        let mut bootstrap_methods: Vec<AttributeBootstrapMethod> = Vec::new();
+
+        for _ in 0..attributes_count {
+            let attribute_idx = data.get_u16size();
+            let attribute_size = data.get_u32size();
+            let attribute_name = match constants_string.get(&attribute_idx) {
+                Some(string) => string.value.clone(),
+                _ => panic!("Cannot find Constant String at index {}", attribute_idx)
+            };
+            if debug >= 2 {
+                println!("Attribute name [{}], size [0x{:x}]", attribute_name, attribute_size);
+            }
+            if attribute_name.eq("BootstrapMethods") {
+                let bootstrap_methods_count = data.get_u16size();
+                for _ in 0..bootstrap_methods_count {
+                    let bootstrap = AttributeBootstrapMethod::new(&mut data, &constants_method_handle);
+                    bootstrap_methods.push(bootstrap);
+                }
+            } else {
+                data.skip(attribute_size);
+            }
+        }
         
+        // Update dynamic invokes
+        for (_, constant_dynamic) in constants_dynamic.iter_mut() {
+            constant_dynamic.init(&bootstrap_methods, &constants_name_type);
+        }
+
         BytecodeClass {
             name: constant_class.name.clone(),
             constants_class: constants_class,
@@ -482,6 +766,9 @@ impl BytecodeClass {
             constants_method: constants_method,
             constants_field: constants_field,
             constants_name_type: constants_name_type,
+            constants_method_handle: constants_method_handle,
+            constants_dynamic: constants_dynamic,
+            bootstrap_methods: bootstrap_methods,
             methods: methods,
             debug: debug
         }
@@ -511,6 +798,15 @@ impl JavaClass for BytecodeClass {
         }
         for (_, constant_string_ref) in &self.constants_string_ref {
             constant_string_ref.print();
+        }
+        for (_, constant_method_handle) in &self.constants_method_handle {
+            constant_method_handle.print();
+        }
+        for (_, constant_dynamic) in &self.constants_dynamic {
+            constant_dynamic.print();
+        }
+        for bootstrap_method in &self.bootstrap_methods {
+            bootstrap_method.print();
         }
     }
 

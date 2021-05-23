@@ -37,6 +37,15 @@ impl ByteCodeInstruction for InstrALoad0 {
     fn print(&self) { println!("      aload0"); }
 }
 
+pub struct InstrALoad1 {}
+impl ByteCodeInstruction for InstrALoad1 {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.push(jvm.var1.clone());
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      aload1"); }
+}
+
 pub struct InstrInvokeSpecial { class_name: String, method_name: String, type_desc: String }
 impl ByteCodeInstruction for InstrInvokeSpecial {
     fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
@@ -51,6 +60,22 @@ impl ByteCodeInstruction for InstrReturn {
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      return"); }
+}
+
+pub struct InstrAReturn {}
+impl ByteCodeInstruction for InstrAReturn {
+    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        return InstrNextAction::RETURN;
+    }
+    fn print(&self) { println!("      areturn"); }
+}
+
+pub struct InstrIReturn {}
+impl ByteCodeInstruction for InstrIReturn {
+    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        return InstrNextAction::RETURN;
+    }
+    fn print(&self) { println!("      ireturn"); }
 }
 
 pub struct InstrGetStatic { class_name: String, field_name: String, type_desc: String }
@@ -154,6 +179,22 @@ impl ByteCodeInstruction for InstrInvokeStatic {
     fn print(&self) { println!("      invokestatic {} {} {}", self.class_name, self.method_name, self.type_desc); }
 }
 
+pub struct InstrInvokeInterface { interface_idx: usize, count: usize }
+impl ByteCodeInstruction for InstrInvokeInterface {
+    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      invokeinterface {} {}", self.interface_idx, self.count / 256); }
+}
+
+pub struct InstrInvokeDynamic { method_idx: usize, count: usize }
+impl ByteCodeInstruction for InstrInvokeDynamic {
+    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      invokedynamic {} {}", self.method_idx, self.count); }
+}
+
 pub struct InstrIStore1 {}
 impl ByteCodeInstruction for InstrIStore1 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
@@ -170,6 +211,15 @@ impl ByteCodeInstruction for InstrIStore2 {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore_2"); }
+}
+
+pub struct InstrAStore1 {}
+impl ByteCodeInstruction for InstrAStore1 {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.var1 = jvm.pop().clone();
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      astore_1"); }
 }
 
 pub struct InstrISub {}
@@ -322,9 +372,11 @@ impl ByteCode {
                 0x1b => Box::new(InstrILoad1 {}),
                 0x1c => Box::new(InstrILoad2 {}),
                 0x2a => Box::new(InstrALoad0 {}),
+                0x2b => Box::new(InstrALoad1 {}),
                 0x32 => Box::new(InstrAALoad {}),
                 0x3c => Box::new(InstrIStore1 {}),
                 0x3d => Box::new(InstrIStore2 {}),
+                0x4c => Box::new(InstrAStore1 {}),
                 0x53 => Box::new(InstrAAStore {}),
                 0x59 => Box::new(InstrDup {}),
                 0x64 => Box::new(InstrISub {}),
@@ -332,6 +384,8 @@ impl ByteCode {
                 0x70 => Box::new(InstrIRem {}),
                 0x9a => Box::new(InstrIfne { branch: data_offset + data.get_u16size() }),
                 0xa7 => Box::new(InstrGoto { branch: data_offset + data.get_u16size() }),
+                0xac => Box::new(InstrIReturn {}),
+                0xb0 => Box::new(InstrAReturn {}),
                 0xb1 => Box::new(InstrReturn {}),
                 0xb2 => match constants_field.get(&data.get_u16size()) {
                     Some(method) => Box::new(InstrGetStatic {
@@ -365,6 +419,14 @@ impl ByteCode {
                     }),
                     _ => panic!("Unknown method")
                 },
+                0xb9 => Box::new(InstrInvokeInterface {
+                        interface_idx: data.get_u16size(),
+                        count: data.get_u16size()
+                }),
+                0xba => Box::new(InstrInvokeDynamic {
+                    method_idx: data.get_u16size(),
+                    count: data.get_u16size()
+                }),
                 0xbd => match constants_class.get(&data.get_u16size()) {
                     Some(class) => Box::new(InstrANewArray {
                         class_name: class.name.clone()
