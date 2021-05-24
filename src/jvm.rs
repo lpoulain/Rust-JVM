@@ -7,7 +7,7 @@ use crate::JavaClass;
 //////////////////////////////////////////
 pub enum JavaObject {
     STRING(String),
-    INSTANCE(String),
+    INSTANCE(String, HashMap<String, Rc<JavaObject>>),
     ARRAY(RefCell<Vec<Rc<JavaObject>>>),
     INTEGER(i32)
 }
@@ -42,6 +42,7 @@ pub struct JVM {
     pub var0: Rc<JavaObject>,
     pub var1: Rc<JavaObject>,
     pub var2: Rc<JavaObject>,
+    pub var3: Rc<JavaObject>,
     pub debug: u8
 }
 
@@ -58,6 +59,7 @@ impl JVM {
             var0: Rc::new(JavaObject::ARRAY(RefCell::new(java_args))),
             var1: Rc::new(JavaObject::INTEGER(0)),
             var2: Rc::new(JavaObject::INTEGER(0)),
+            var3: Rc::new(JavaObject::INTEGER(0)),
             debug: debug
         }
     }
@@ -93,7 +95,7 @@ impl JVM {
         match java_object {
             JavaObject::STRING(st) => print!("\"{}\"", st),
             JavaObject::INTEGER(int) => print!("{}", int),
-            JavaObject::INSTANCE(cl) => print!("{} instance", cl),
+            JavaObject::INSTANCE(cl, _) => print!("{} instance", cl),
             JavaObject::ARRAY(array) => {
                 print!("[");
                 for sub_obj in array.borrow().iter() {
