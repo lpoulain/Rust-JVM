@@ -3,13 +3,13 @@ A far-from-complete Java Virtual Machine made in Rust
 
 ## What is supported
 
-At this point it is a very primitive JVM. The `Hello.java` and `Arithm.java` show what is currently being supported.
+At this point it is a very primitive JVM. The `Hello.java`, `Arithm.java` and `Streams.java` show what is currently being supported.
 
-See also the [Bytecode overview](Bytecode_overview.md) to have a glimpse of how Java/Scala/Kotlin code are converted into bytecode instructions.
+See also the [Bytecode overview](bytecode.md) and the [Java Streams overview](streams.md) to have a glimpse of how Java/Scala/Kotlin code are converted into bytecode instructions.
 
 ## How to use it
 
-The main use is to run `jvm <class name>` (the corresponding .class file must be in the current directory). It is also possible to pass a debugging level (from 1 to 3) to get more information about the bytecode both defined in the .class file and the bytecode instructions actually executed.
+The main use is to run `jvm <class name>` (the corresponding .class file must be in the current directory or in the `Java` directory). It is also possible to pass a debugging level (from 1 to 3) to get more information about the bytecode both defined in the .class file and the bytecode instructions actually executed.
 
 ```
 > cargo build
@@ -26,4 +26,8 @@ Execute 1       ldc "Hello, World!"
 Execute 2       invokevirtual java/io/PrintStream println (Ljava/lang/String;)V
 Hello, World!
 Execute 3       return
+
+> ./target/debug/jvm Streams Alice Bob Charlie Anna Delta
+alice
+anna
 ```

@@ -2,6 +2,7 @@ mod java_class;
 mod jvm;
 mod bytecode;
 mod native_java_classes;
+mod streams;
 
 use std::rc::Rc;
 
@@ -10,11 +11,7 @@ use clap::{Arg, App};
 
 use crate::java_class::JavaClass;
 use crate::java_class::BytecodeClass;
-use crate::native_java_classes::NativePrintStreamClass;
-use crate::native_java_classes::NativeSystemClass;
-use crate::native_java_classes::NativeStringClass;
-use crate::native_java_classes::NativeIntegerClass;
-use crate::native_java_classes::NativeArraysClass;
+use crate::native_java_classes::register_native_classes;
 use crate::jvm::JVM;
 use crate::jvm::Classes;
 
@@ -51,11 +48,7 @@ fn main() {
     let mut classes = Classes::new();
 
     classes.add_class(java_class.clone());
-    classes.add_class(Rc::new(NativePrintStreamClass {}));
-    classes.add_class(Rc::new(NativeSystemClass {}));
-    classes.add_class(Rc::new(NativeStringClass {}));
-    classes.add_class(Rc::new(NativeIntegerClass {}));
-    classes.add_class(Rc::new(NativeArraysClass {}));
+    register_native_classes(&mut classes);
 
     java_class.execute_static_method(&mut jvm, &classes, &"main".to_string());
 }

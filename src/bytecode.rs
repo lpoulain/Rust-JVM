@@ -8,6 +8,7 @@ use crate::java_class::ConstantStringRef;
 use crate::java_class::ConstantClass;
 use crate::java_class::ConstantMethod;
 use crate::java_class::ConstantNameType;
+use crate::java_class::ConstantInvokeDynamic;
 use crate::JVM;
 use crate::java_class::Blob;
 use crate::java_class::BytecodeClass;
@@ -392,7 +393,7 @@ impl ByteCodeInstruction for InstrGetStatic {
         jvm.push(Rc::new(class.get_static_object(&self.field_name)));
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      getstatic {} {} {}", self.class_name, self.field_name, self.type_desc); }
+    fn print(&self) { println!("      getstatic {}.{} -> {}", self.class_name, self.field_name, self.type_desc); }
 }
 
 pub struct InstrInvokeVirtual { class_name: String, method_name: String, type_desc: String }
@@ -402,7 +403,7 @@ impl ByteCodeInstruction for InstrInvokeVirtual {
         class.execute_method(jvm, classes, &self.method_name);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokevirtual {} {} {}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokevirtual {}.{}() -> {}", self.class_name, self.method_name, self.type_desc); }
 }
 
 pub struct InstrInvokeSpecial { class_name: String, method_name: String, type_desc: String }
@@ -410,7 +411,7 @@ impl ByteCodeInstruction for InstrInvokeSpecial {
     fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokespecial {} {} {}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokespecial {}.{}() -> {}", self.class_name, self.method_name, self.type_desc); }
 }
 
 pub struct InstrInvokeStatic { class_name: String, method_name: String, type_desc: String }
@@ -420,23 +421,45 @@ impl ByteCodeInstruction for InstrInvokeStatic {
         class.execute_static_method(jvm, classes, &self.method_name);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokestatic {} {} {}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokestatic {}.{}() -> {}", self.class_name, self.method_name, self.type_desc); }
 }
 
-pub struct InstrInvokeInterface { interface_idx: usize, count: usize }
+pub struct InstrInvokeInterface { class_name: String, method_name: String, type_desc: String, count: usize }
 impl ByteCodeInstruction for InstrInvokeInterface {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, classes: &Classes) -> InstrNextAction {
+        let class = classes.get_class(&self.class_name);
+        class.execute_method(jvm, classes, &self.method_name);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokeinterface {} {}", self.interface_idx, self.count / 256); }
+    fn print(&self) { println!("      invokeinterface {}.{}() -> {} {}", self.class_name, self.method_name, self.type_desc, self.count); }
 }
 
-pub struct InstrInvokeDynamic { method_idx: usize, count: usize }
+pub struct InstrInvokeDynamic {
+    method_name: String,
+    method_type: String,
+    bootstrap_method_idx: usize
+}
 impl ByteCodeInstruction for InstrInvokeDynamic {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, class: &BytecodeClass, jvm: &mut JVM, classes: &Classes) -> InstrNextAction {
+
+        let bootstrap = match class.bootstrap_methods.get(self.bootstrap_method_idx) {
+            Some(bootstrap) => bootstrap,
+            _ => panic!("Unknown bootstrap mehtod {}", self.bootstrap_method_idx)
+        };
+
+        jvm.push(Rc::new(JavaObject::STRING(class.name.clone())));
+        jvm.push(Rc::new(JavaObject::STRING(self.method_name.clone())));
+        jvm.push(Rc::new(JavaObject::STRING(self.method_type.clone())));
+        for arg in bootstrap.arguments.iter() {
+            jvm.push(Rc::new(JavaObject::INTEGER(*arg as i32)));
+        }
+
+        let class = classes.get_class(&bootstrap.class_name);
+        class.execute_static_method(jvm, classes, &bootstrap.method_name);
+
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokedynamic {} {}", self.method_idx, self.count); }
+    fn print(&self) { println!("      invokedynamic {} {} {}", self.bootstrap_method_idx, self.method_name, self.method_type); }
 }
 
 pub struct InstrANewArray { class_name: String }
@@ -467,7 +490,9 @@ impl ByteCode {
         constants_string_ref: &HashMap<usize, ConstantStringRef>,
         constants_method: &HashMap<usize, ConstantMethod>,
         constants_field: &HashMap<usize, ConstantField>,
-        _constants_name_type: &HashMap<usize, ConstantNameType>, debug:u8) -> ByteCode {
+        _constants_name_type: &HashMap<usize, ConstantNameType>,
+        constants_dynamic: &HashMap<usize, ConstantInvokeDynamic>,
+        debug:u8) -> ByteCode {
 
         let mut instructions: Vec<Box<dyn ByteCodeInstruction>> = Vec::new();
         data.rewind();
@@ -555,14 +580,28 @@ impl ByteCode {
                     }),
                     _ => panic!("Unknown method")
                 },
-                0xb9 => Box::new(InstrInvokeInterface {
-                        interface_idx: data.get_u16size(),
-                        count: data.get_u16size()
-                }),
-                0xba => Box::new(InstrInvokeDynamic {
-                    method_idx: data.get_u16size(),
-                    count: data.get_u16size()
-                }),
+                0xb9 => match constants_method.get(&data.get_u16size()) {
+                    Some(method) => Box::new(InstrInvokeInterface {
+                        count: data.get_u16size(),
+                        class_name: method.class_name.clone(),
+                        method_name: method.method_name.clone(),
+                        type_desc: method.type_name.clone()
+                    }),
+                    _ => panic!("Unknown interface")
+                },
+                0xba => {
+                    let type_name = data.get_u16size();
+                    data.get_u16size();
+
+                    match constants_dynamic.get(&type_name) {
+                        Some(dynamic) => Box::new(InstrInvokeDynamic {
+                            bootstrap_method_idx: dynamic.idx_bootstrap_method,
+                            method_name: dynamic.method_name.clone(),
+                            method_type: dynamic.type_name.clone()
+                        }),
+                        _ => panic!("Unknown name/type {}", type_name)
+                    }
+                },
                 0xbd => match constants_class.get(&data.get_u16size()) {
                     Some(class) => Box::new(InstrANewArray {
                         class_name: class.name.clone()

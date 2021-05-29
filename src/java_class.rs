@@ -353,7 +353,7 @@ impl ConstantInterfaceMethod {
 */
 ///////////////////////////////////////////
 pub struct ConstantInvokeDynamic {
-    idx_bootstrap_method: usize,
+    pub idx_bootstrap_method: usize,
     idx_name_type: usize,
     bootstrap_class_name: String,
     bootstrap_method_name: String,
@@ -382,7 +382,17 @@ impl ConstantInvokeDynamic {
         }
     }
 
-    pub fn init(&mut self, bootstrap_methods: &Vec<AttributeBootstrapMethod>, name_types: &HashMap<usize, ConstantNameType>) {
+    pub fn init1(&mut self, name_types: &HashMap<usize, ConstantNameType>) {
+        match name_types.get(&self.idx_name_type) {
+            Some(name_type) => {
+                self.method_name = name_type.name.clone();
+                self.type_name = name_type.type_desc.clone();
+            },
+            _ => panic!("Cannot find name/type {}", self.idx_name_type)
+        };
+    }
+
+    pub fn init2(&mut self, bootstrap_methods: &Vec<AttributeBootstrapMethod>) {
         match bootstrap_methods.get(self.idx_bootstrap_method) {
             Some(bootstrap) => {
                 self.bootstrap_class_name = bootstrap.class_name.clone();
@@ -393,14 +403,6 @@ impl ConstantInvokeDynamic {
                 }
             }
             _ => panic!("Cannot find bootstrap method {}", self.idx_bootstrap_method)
-        };
-
-        match name_types.get(&self.idx_name_type) {
-            Some(name_type) => {
-                self.method_name = name_type.name.clone();
-                self.type_name = name_type.type_desc.clone();
-            },
-            _ => panic!("Cannot find name/type {}", self.idx_name_type)
         };
     }
 
@@ -463,10 +465,10 @@ impl ConstantMethodHandle {
 
 ///////////////////////////////////////////
 pub struct AttributeBootstrapMethod {
-    class_name: String,
-    method_name: String,
-    type_name: String,
-    arguments: Vec<usize>
+    pub class_name: String,
+    pub method_name: String,
+    pub type_name: String,
+    pub arguments: Vec<usize>
 }
 
 impl AttributeBootstrapMethod {
@@ -517,10 +519,13 @@ pub trait JavaClass {
     fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String);
     fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String);
     fn get_static_object(&self, field_name: &String) -> JavaObject;
+    fn get_method_handles(&self) -> &HashMap<usize, ConstantMethodHandle> {
+        panic!("Class {} has no get_method_handles() implemented", self.get_name());
+    }
 }
 
 pub struct BytecodeClass {
-    name: String,
+    pub name: String,
     constants_class: HashMap<usize, ConstantClass>,
     constants_string: HashMap<usize, ConstantString>,
     constants_string_ref: HashMap<usize, ConstantStringRef>,
@@ -530,7 +535,7 @@ pub struct BytecodeClass {
     constants_method_handle: HashMap<usize, ConstantMethodHandle>,
     constants_dynamic: HashMap<usize, ConstantInvokeDynamic>,
     methods: HashMap<String, ByteCode>,
-    bootstrap_methods: Vec<AttributeBootstrapMethod>,
+    pub bootstrap_methods: Vec<AttributeBootstrapMethod>,
     debug: u8
 }
 
@@ -647,6 +652,10 @@ impl BytecodeClass {
             constant_method_handle.init(&constants_field, &constants_method);
         }
 
+        for (_, constant_dynamic) in constants_dynamic.iter_mut() {
+            constant_dynamic.init1(&constants_name_type);
+        }
+
         // skip access flags
         data.skip(2);
 
@@ -717,7 +726,7 @@ impl BytecodeClass {
                     }
 
                     let bytecode = ByteCode::new(&mut code, &constants_class, &constants_string, &constants_string_ref,
-                        &constants_method, &constants_field, &constants_name_type, debug);
+                        &constants_method, &constants_field, &constants_name_type, &constants_dynamic, debug);
                     methods.insert(method_name.clone(), bytecode);
 
                     data.skip(attribute_size - 8 - code_size);
@@ -754,7 +763,7 @@ impl BytecodeClass {
         
         // Update dynamic invokes
         for (_, constant_dynamic) in constants_dynamic.iter_mut() {
-            constant_dynamic.init(&bootstrap_methods, &constants_name_type);
+            constant_dynamic.init2(&bootstrap_methods);
         }
 
         BytecodeClass {
@@ -777,6 +786,10 @@ impl BytecodeClass {
 impl JavaClass for BytecodeClass {
     fn get_name(&self) -> String {
         return self.name.clone();
+    }
+
+    fn get_method_handles(&self) -> &HashMap<usize, ConstantMethodHandle> {
+        return &self.constants_method_handle;
     }
 
     fn print(&self) {
@@ -809,8 +822,9 @@ impl JavaClass for BytecodeClass {
         }
     }
 
-    fn execute_method(&self, _jvm: &mut JVM, _classes: &Classes, _method_name: &String) {
-        panic!("Not implemented yet");
+    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {
+//        if self.debug >= 1 { println!("Executing method {}", method_name); }
+        self.execute_static_method(jvm, classes, method_name);
     }
 
     fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {

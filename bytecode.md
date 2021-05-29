@@ -4,7 +4,7 @@ The `javac` Java compiler compiles Java/Scala/Kotlin code into bytecode, a pseud
 
 Let's see how the following Java code is compiled:
 
-```
+```java
 public static void main(String[] args) {
   int a = Integer.parseInt(args[0]);
   int b;

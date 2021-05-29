@@ -1,0 +1,332 @@
+00000000  ca fe ba be 00 00 00 34  00 71 0a 00 10 00 1f 0a  |.......4.q......|
+00000010  00 20 00 21 0b 00 22 00  23 12 00 00 00 29 0b 00  |. .!..".#....)..|
+00000020  2a 00 2b 12 00 01 00 2f  0b 00 2a 00 30 12 00 02  |*.+..../..*.0...|
+00000030  00 34 0b 00 2a 00 35 09  00 36 00 37 0a 00 38 00  |.4..*.5..6.7..8.|
+00000040  39 0a 00 3a 00 3b 08 00  3c 0a 00 3a 00 3d 07 00  |9..:.;..<..:.=..|
+00000050  3e 07 00 3f 01 00 06 3c  69 6e 69 74 3e 01 00 03  |>..?...<init>...|
+00000060  28 29 56 01 00 04 43 6f  64 65 01 00 0f 4c 69 6e  |()V...Code...Lin|
+00000070  65 4e 75 6d 62 65 72 54  61 62 6c 65 01 00 04 6d  |eNumberTable...m|
+00000080  61 69 6e 01 00 16 28 5b  4c 6a 61 76 61 2f 6c 61  |ain...([Ljava/la|
+00000090  6e 67 2f 53 74 72 69 6e  67 3b 29 56 01 00 0d 6c  |ng/String;)V...l|
+000000a0  61 6d 62 64 61 24 6d 61  69 6e 24 32 01 00 15 28  |ambda$main$2...(|
+000000b0  4c 6a 61 76 61 2f 6c 61  6e 67 2f 53 74 72 69 6e  |Ljava/lang/Strin|
+000000c0  67 3b 29 56 01 00 0d 6c  61 6d 62 64 61 24 6d 61  |g;)V...lambda$ma|
+000000d0  69 6e 24 31 01 00 26 28  4c 6a 61 76 61 2f 6c 61  |in$1..&(Ljava/la|
+000000e0  6e 67 2f 53 74 72 69 6e  67 3b 29 4c 6a 61 76 61  |ng/String;)Ljava|
+000000f0  2f 6c 61 6e 67 2f 53 74  72 69 6e 67 3b 01 00 0d  |/lang/String;...|
+00000100  6c 61 6d 62 64 61 24 6d  61 69 6e 24 30 01 00 15  |lambda$main$0...|
+00000110  28 4c 6a 61 76 61 2f 6c  61 6e 67 2f 53 74 72 69  |(Ljava/lang/Stri|
+00000120  6e 67 3b 29 5a 01 00 0a  53 6f 75 72 63 65 46 69  |ng;)Z...SourceFi|
+00000130  6c 65 01 00 0c 53 74 72  65 61 6d 73 2e 6a 61 76  |le...Streams.jav|
+00000140  61 0c 00 11 00 12 07 00  40 0c 00 41 00 42 07 00  |a.......@..A.B..|
+00000150  43 0c 00 44 00 45 01 00  10 42 6f 6f 74 73 74 72  |C..D.E...Bootstr|
+00000160  61 70 4d 65 74 68 6f 64  73 0f 06 00 46 10 00 47  |apMethods...F..G|
+00000170  0f 06 00 48 10 00 1c 0c  00 49 00 4a 07 00 4b 0c  |...H.....I.J..K.|
+00000180  00 4c 00 4d 10 00 4e 0f  06 00 4f 10 00 1a 0c 00  |.L.M..N...O.....|
+00000190  50 00 51 0c 00 52 00 53  10 00 54 0f 06 00 55 10  |P.Q..R.S..T...U.|
+000001a0  00 18 0c 00 56 00 57 0c  00 58 00 59 07 00 5a 0c  |....V.W..X.Y..Z.|
+000001b0  00 5b 00 5c 07 00 5d 0c  00 5e 00 18 07 00 5f 0c  |.[.\..]..^...._.|
+000001c0  00 60 00 61 01 00 01 41  0c 00 62 00 1c 01 00 07  |.`.a...A..b.....|
+000001d0  53 74 72 65 61 6d 73 01  00 10 6a 61 76 61 2f 6c  |Streams...java/l|
+000001e0  61 6e 67 2f 4f 62 6a 65  63 74 01 00 10 6a 61 76  |ang/Object...jav|
+000001f0  61 2f 75 74 69 6c 2f 41  72 72 61 79 73 01 00 06  |a/util/Arrays...|
+00000200  61 73 4c 69 73 74 01 00  25 28 5b 4c 6a 61 76 61  |asList..%([Ljava|
+00000210  2f 6c 61 6e 67 2f 4f 62  6a 65 63 74 3b 29 4c 6a  |/lang/Object;)Lj|
+00000220  61 76 61 2f 75 74 69 6c  2f 4c 69 73 74 3b 01 00  |ava/util/List;..|
+00000230  0e 6a 61 76 61 2f 75 74  69 6c 2f 4c 69 73 74 01  |.java/util/List.|
+00000240  00 06 73 74 72 65 61 6d  01 00 1b 28 29 4c 6a 61  |..stream...()Lja|
+00000250  76 61 2f 75 74 69 6c 2f  73 74 72 65 61 6d 2f 53  |va/util/stream/S|
+00000260  74 72 65 61 6d 3b 0a 00  63 00 64 01 00 15 28 4c  |tream;..c.d...(L|
+00000270  6a 61 76 61 2f 6c 61 6e  67 2f 4f 62 6a 65 63 74  |java/lang/Object|
+00000280  3b 29 5a 0a 00 0f 00 65  01 00 04 74 65 73 74 01  |;)Z....e...test.|
+00000290  00 20 28 29 4c 6a 61 76  61 2f 75 74 69 6c 2f 66  |. ()Ljava/util/f|
+000002a0  75 6e 63 74 69 6f 6e 2f  50 72 65 64 69 63 61 74  |unction/Predicat|
+000002b0  65 3b 01 00 17 6a 61 76  61 2f 75 74 69 6c 2f 73  |e;...java/util/s|
+000002c0  74 72 65 61 6d 2f 53 74  72 65 61 6d 01 00 06 66  |tream/Stream...f|
+000002d0  69 6c 74 65 72 01 00 39  28 4c 6a 61 76 61 2f 75  |ilter..9(Ljava/u|
+000002e0  74 69 6c 2f 66 75 6e 63  74 69 6f 6e 2f 50 72 65  |til/function/Pre|
+000002f0  64 69 63 61 74 65 3b 29  4c 6a 61 76 61 2f 75 74  |dicate;)Ljava/ut|
+00000300  69 6c 2f 73 74 72 65 61  6d 2f 53 74 72 65 61 6d  |il/stream/Stream|
+00000310  3b 01 00 26 28 4c 6a 61  76 61 2f 6c 61 6e 67 2f  |;..&(Ljava/lang/|
+00000320  4f 62 6a 65 63 74 3b 29  4c 6a 61 76 61 2f 6c 61  |Object;)Ljava/la|
+00000330  6e 67 2f 4f 62 6a 65 63  74 3b 0a 00 0f 00 66 01  |ng/Object;....f.|
+00000340  00 05 61 70 70 6c 79 01  00 1f 28 29 4c 6a 61 76  |..apply...()Ljav|
+00000350  61 2f 75 74 69 6c 2f 66  75 6e 63 74 69 6f 6e 2f  |a/util/function/|
+00000360  46 75 6e 63 74 69 6f 6e  3b 01 00 03 6d 61 70 01  |Function;...map.|
+00000370  00 38 28 4c 6a 61 76 61  2f 75 74 69 6c 2f 66 75  |.8(Ljava/util/fu|
+00000380  6e 63 74 69 6f 6e 2f 46  75 6e 63 74 69 6f 6e 3b  |nction/Function;|
+00000390  29 4c 6a 61 76 61 2f 75  74 69 6c 2f 73 74 72 65  |)Ljava/util/stre|
+000003a0  61 6d 2f 53 74 72 65 61  6d 3b 01 00 15 28 4c 6a  |am/Stream;...(Lj|
+000003b0  61 76 61 2f 6c 61 6e 67  2f 4f 62 6a 65 63 74 3b  |ava/lang/Object;|
+000003c0  29 56 0a 00 0f 00 67 01  00 06 61 63 63 65 70 74  |)V....g...accept|
+000003d0  01 00 1f 28 29 4c 6a 61  76 61 2f 75 74 69 6c 2f  |...()Ljava/util/|
+000003e0  66 75 6e 63 74 69 6f 6e  2f 43 6f 6e 73 75 6d 65  |function/Consume|
+000003f0  72 3b 01 00 07 66 6f 72  45 61 63 68 01 00 20 28  |r;...forEach.. (|
+00000400  4c 6a 61 76 61 2f 75 74  69 6c 2f 66 75 6e 63 74  |Ljava/util/funct|
+00000410  69 6f 6e 2f 43 6f 6e 73  75 6d 65 72 3b 29 56 01  |ion/Consumer;)V.|
+00000420  00 10 6a 61 76 61 2f 6c  61 6e 67 2f 53 79 73 74  |..java/lang/Syst|
+00000430  65 6d 01 00 03 6f 75 74  01 00 15 4c 6a 61 76 61  |em...out...Ljava|
+00000440  2f 69 6f 2f 50 72 69 6e  74 53 74 72 65 61 6d 3b  |/io/PrintStream;|
+00000450  01 00 13 6a 61 76 61 2f  69 6f 2f 50 72 69 6e 74  |...java/io/Print|
+00000460  53 74 72 65 61 6d 01 00  07 70 72 69 6e 74 6c 6e  |Stream...println|
+00000470  01 00 10 6a 61 76 61 2f  6c 61 6e 67 2f 53 74 72  |...java/lang/Str|
+00000480  69 6e 67 01 00 0b 74 6f  4c 6f 77 65 72 43 61 73  |ing...toLowerCas|
+00000490  65 01 00 14 28 29 4c 6a  61 76 61 2f 6c 61 6e 67  |e...()Ljava/lang|
+000004a0  2f 53 74 72 69 6e 67 3b  01 00 0a 73 74 61 72 74  |/String;...start|
+000004b0  73 57 69 74 68 07 00 68  0c 00 69 00 6d 0c 00 1b  |sWith..h..i.m...|
+000004c0  00 1c 0c 00 19 00 1a 0c  00 17 00 18 01 00 22 6a  |.............."j|
+000004d0  61 76 61 2f 6c 61 6e 67  2f 69 6e 76 6f 6b 65 2f  |ava/lang/invoke/|
+000004e0  4c 61 6d 62 64 61 4d 65  74 61 66 61 63 74 6f 72  |LambdaMetafactor|
+000004f0  79 01 00 0b 6d 65 74 61  66 61 63 74 6f 72 79 07  |y...metafactory.|
+00000500  00 6f 01 00 06 4c 6f 6f  6b 75 70 01 00 0c 49 6e  |.o...Lookup...In|
+00000510  6e 65 72 43 6c 61 73 73  65 73 01 00 cc 28 4c 6a  |nerClasses...(Lj|
+00000520  61 76 61 2f 6c 61 6e 67  2f 69 6e 76 6f 6b 65 2f  |ava/lang/invoke/|
+00000530  4d 65 74 68 6f 64 48 61  6e 64 6c 65 73 24 4c 6f  |MethodHandles$Lo|
+00000540  6f 6b 75 70 3b 4c 6a 61  76 61 2f 6c 61 6e 67 2f  |okup;Ljava/lang/|
+00000550  53 74 72 69 6e 67 3b 4c  6a 61 76 61 2f 6c 61 6e  |String;Ljava/lan|
+00000560  67 2f 69 6e 76 6f 6b 65  2f 4d 65 74 68 6f 64 54  |g/invoke/MethodT|
+00000570  79 70 65 3b 4c 6a 61 76  61 2f 6c 61 6e 67 2f 69  |ype;Ljava/lang/i|
+00000580  6e 76 6f 6b 65 2f 4d 65  74 68 6f 64 54 79 70 65  |nvoke/MethodType|
+00000590  3b 4c 6a 61 76 61 2f 6c  61 6e 67 2f 69 6e 76 6f  |;Ljava/lang/invo|
+000005a0  6b 65 2f 4d 65 74 68 6f  64 48 61 6e 64 6c 65 3b  |ke/MethodHandle;|
+000005b0  4c 6a 61 76 61 2f 6c 61  6e 67 2f 69 6e 76 6f 6b  |Ljava/lang/invok|
+000005c0  65 2f 4d 65 74 68 6f 64  54 79 70 65 3b 29 4c 6a  |e/MethodType;)Lj|
+000005d0  61 76 61 2f 6c 61 6e 67  2f 69 6e 76 6f 6b 65 2f  |ava/lang/invoke/|
+000005e0  43 61 6c 6c 53 69 74 65  3b 07 00 70 01 00 25 6a  |CallSite;..p..%j|
+000005f0  61 76 61 2f 6c 61 6e 67  2f 69 6e 76 6f 6b 65 2f  |ava/lang/invoke/|
+00000600  4d 65 74 68 6f 64 48 61  6e 64 6c 65 73 24 4c 6f  |MethodHandles$Lo|
+00000610  6f 6b 75 70 01 00 1e 6a  61 76 61 2f 6c 61 6e 67  |okup...java/lang|
+00000620  2f 69 6e 76 6f 6b 65 2f  4d 65 74 68 6f 64 48 61  |/invoke/MethodHa|
+00000630  6e 64 6c 65 73 00 20 00  0f 00 10 00 00 00 00 00  |ndles. .........|
+00000640  05 00 00 00 11 00 12 00  01 00 13 00 00 00 1d 00  |................|
+00000650  01 00 01 00 00 00 05 2a  b7 00 01 b1 00 00 00 01  |.......*........|
+00000660  00 14 00 00 00 06 00 01  00 00 00 03 00 09 00 15  |................|
+00000670  00 16 00 01 00 13 00 00  00 56 00 02 00 02 00 00  |.........V......|
+00000680  00 2a 2a b8 00 02 4c 2b  b9 00 03 01 00 ba 00 04  |.**...L+........|
+00000690  00 00 b9 00 05 02 00 ba  00 06 00 00 b9 00 07 02  |................|
+000006a0  00 ba 00 08 00 00 b9 00  09 02 00 b1 00 00 00 01  |................|
+000006b0  00 14 00 00 00 1a 00 06  00 00 00 05 00 05 00 07  |................|
+000006c0  00 10 00 08 00 1a 00 09  00 24 00 0a 00 29 00 0b  |.........$...)..|
+000006d0  10 0a 00 17 00 18 00 01  00 13 00 00 00 20 00 02  |............. ..|
+000006e0  00 01 00 00 00 08 b2 00  0a 2a b6 00 0b b1 00 00  |.........*......|
+000006f0  00 01 00 14 00 00 00 06  00 01 00 00 00 0a 10 0a  |................|
+00000700  00 19 00 1a 00 01 00 13  00 00 00 1d 00 01 00 01  |................|
+00000710  00 00 00 05 2a b6 00 0c  b0 00 00 00 01 00 14 00  |....*...........|
+00000720  00 00 06 00 01 00 00 00  09 10 0a 00 1b 00 1c 00  |................|
+00000730  01 00 13 00 00 00 1f 00  02 00 01 00 00 00 07 2a  |...............*|
+00000740  12 0d b6 00 0e ac 00 00  00 01 00 14 00 00 00 06  |................|
+00000750  00 01 00 00 00 08 00 03  00 1d 00 00 00 02 00 1e  |................|
+00000760  00 6c 00 00 00 0a 00 01  00 6a 00 6e 00 6b 00 19  |.l.......j.n.k..|
+00000770  00 24 00 00 00 20 00 03  00 25 00 03 00 26 00 27  |.$... ...%...&.'|
+00000780  00 28 00 25 00 03 00 2c  00 2d 00 2e 00 25 00 03  |.(.%...,.-...%..|
+00000790  00 31 00 32 00 33                                 |.1.2.3|
+00000796
+
+ca fe ba be: magic number
+00 00 00 34: version
+00 71: constant pool count (113)
+
+0x01  0a 00 10 00 1f: Method: [], Class: [], Type: []
+0x02  0a 00 20 00 21: Method: [], Class: [], Type: []
+0x03  0b 00 22 00 23: CONSTANT_InterfaceMethodref [java/util/List] [stream] [()Ljava/util/stream/Stream;]
+0x04  12 00 00 00 29: CONSTANT_InvokeDynamic [bootstrap method 0] [test] [()Ljava/util/function/Predicate;]
+0x05  0b 00 2a 00 2b: CONSTANT_InterfaceMethodref [java/util/stream/Stream] 43
+0x06  12 00 01 00 2f: CONSTANT_InvokeDynamic [bootstrap method 1] [apply] [()Ljava/util/function/Function;]
+0x07  0b 00 2a 00 30: CONSTANT_InterfaceMethodref [java/util/stream/Stream] 48
+0x08  12 00 02 00 34: CONSTANT_InvokeDynamic [bootstrap method 2] [accept] [()Ljava/util/function/Consumer;]
+0x09  0b 00 2a 00 35: CONSTANT_InterfaceMethodref [java/util/stream/Stream] 53
+0x0a  09 00 36 00 37: Field: [], Class: [], Type: []
+0x0b  0a 00 38 00 39: Method: [], Class: [], Type: []
+0x0c  0a 00 3a 00 3b: Method: [], Class: [], Type: []
+0x0d  08 00 3c: String ref: []
+0x0e  0a 00 3a 00 3d: Method: [], Class: [], Type: []
+0x0f  07 00 3e: Class: [Streams]
+0x10  07 00 3f: Class: []
+0x11  01 00 06: String: [<init>], 6 bytes
+0x12  01 00 03: String: [()V], 3 bytes
+0x13  01 00 04: String: [Code], 4 bytes
+0x14  01 00 0f: String: [LineNumberTable], 15 bytes
+0x15  01 00 04: String: [main], 4 bytes
+0x16  01 00 16: String: [([Ljava/lang/String;)V], 22 bytes
+0x17  01 00 0d: String: [lambda$main$2], 13 bytes
+0x18  01 00 15: String: [(Ljava/lang/String;)V], 21 bytes
+0x19  01 00 0d: String: [lambda$main$1], 13 bytes
+0x1a  01 00 26: String: [(Ljava/lang/String;)Ljava/lang/String;], 38 bytes
+0x1b  01 00 0d: String: [lambda$main$0], 13 bytes
+0x1c  01 00 15: String: [(Ljava/lang/String;)Z], 21 bytes
+0x1d  01 00 0a: String: [SourceFile], 10 bytes
+0x1e  01 00 0c: String: [Streams.java], 12 bytes
+0x1f  0c 00 11 00 12: Name/type: [][]
+0x20  07 00 40: Class: []
+0x21  0c 00 41 00 42: Name/type: [][]
+0x22  07 00 43: Class: [java/util/List]
+0x23  0c 00 44 00 45: Name/type: [stream][()Ljava/util/stream/Stream;]
+0x24  01 00 10: String: [BootstrapMethods], 16 bytes
+0x25  0f 06 00 46: CONSTANT_MethodHandle 6 [java/lang/invoke/LambdaMetafactory] [metafactory]
+0x26  10 00 47: CONSTANT_MethodType [(Ljava/lang/Object;)Z]
+0x27  0f 06 00 48: CONSTANT_MethodHandle 6 [Streams] [lambda$main$0]
+0x28  10 00 1c: CONSTANT_MethodType [(Ljava/lang/String;)Z]
+0x29  0c 00 49 00 4a: Name/type: [test] [()Ljava/util/function/Predicate;]
+0x2a  07 00 4b: Class: [java/util/stream/Stream]
+0x2b  0c 00 4c 00 4d: Name/type: [][]
+0x2c  10 00 4e: CONSTANT_MethodType [(Ljava/lang/Object;)Ljava/lang/Object;]
+0x2d  0f 06 00 4f: CONSTANT_MethodHandle 6 79
+0x2e  10 00 1a: CONSTANT_MethodType 26
+0x2f  0c 00 50 00 51: Name/type: [apply] [()Ljava/util/function/Function;]
+0x30  0c 00 52 00 53: Name/type: [map] [(Ljava/util/function/Function;)Ljava/util/stream/Stream;]
+0x31  10 00 54: CONSTANT_MethodType 84
+0x32  0f 06 00 55: CONSTANT_MethodHandle 6 85
+0x33  10 00 18: CONSTANT_MethodType 24
+0x34  0c 00 56 00 57: Name/type: [accept] [()Ljava/util/function/Consumer;]
+0x35  0c 00 58 00 59: Name/type: [][]
+0x36  07 00 5a: Class: []
+0x37  0c 00 5b 00 5c: Name/type: [][]
+0x38  07 00 5d: Class: []
+0x39  0c 00 5e 00 18: Name/type: [][]
+0x3a  07 00 5f: Class: []
+0x3b  0c 00 60 00 61: Name/type: [][]
+0x3c  01 00 01: String: [A], 1 bytes
+0x3d  0c 00 62 00 1c: Name/type: [][]
+0x3e  01 00 07: String: [Streams], 7 bytes
+0x3f  01 00 10: String: [java/lang/Object], 16 bytes
+0x40  01 00 10: String: [java/util/Arrays], 16 bytes
+0x41  01 00 06: String: [asList], 6 bytes
+0x42  01 00 25: String: [([Ljava/lang/Object;)Ljava/util/List;], 37 bytes
+0x43  01 00 0e: String: [java/util/List], 14 bytes
+0x44  01 00 06: String: [stream], 6 bytes
+0x45  01 00 1b: String: [()Ljava/util/stream/Stream;], 27 bytes
+0x46  0a 00 63 00 64: Method: [metafactory], Class: [java/lang/invoke/LambdaMetafactory], Type: [(Ljava/lang/invoke/Me...]
+0x47  01 00 15: String: [(Ljava/lang/Object;)Z], 21 bytes
+0x48  0a 00 0f 00 65: Method: [lambda$main$0], Class: [Streams], Type: []
+0x49  01 00 04: String: [test], 4 bytes
+0x4a  01 00 20: String: [()Ljava/util/function/Predicate;], 32 bytes
+0x4b  01 00 17: String: [java/util/stream/Stream], 23 bytes
+0x4c  01 00 06: String: [filter], 6 bytes
+0x4d  01 00 39: String: [(Ljava/util/function/Predicate;)Ljava/util/stream/Stream;], 57 bytes
+0x4e  01 00 26: String: [(Ljava/lang/Object;)Ljava/lang/Object;], 38 bytes
+0x4f  0a 00 0f 00 66: Method: [], Class: [], Type: []
+0x50  01 00 05: String: [apply], 5 bytes
+0x51  01 00 1f: String: [()Ljava/util/function/Function;], 31 bytes
+0x52  01 00 03: String: [map], 3 bytes
+0x53  01 00 38: String: [(Ljava/util/function/Function;)Ljava/util/stream/Stream;], 56 bytes
+0x54  01 00 15: String: [(Ljava/lang/Object;)V], 21 bytes
+0x55  0a 00 0f 00 67: Method: [], Class: [], Type: []
+0x56  01 00 06: String: [accept], 6 bytes
+0x57  01 00 1f: String: [()Ljava/util/function/Consumer;], 31 bytes
+0x58  01 00 07: String: [forEach], 7 bytes
+0x59  01 00 20: String: [(Ljava/util/function/Consumer;)V], 32 bytes
+0x5a  01 00 10: String: [java/lang/System], 16 bytes
+0x5b  01 00 03: String: [out], 3 bytes
+0x5c  01 00 15: String: [Ljava/io/PrintStream;], 21 bytes
+0x5d  01 00 13: String: [java/io/PrintStream], 19 bytes
+0x5e  01 00 07: String: [println], 7 bytes
+0x5f  01 00 10: String: [java/lang/String], 16 bytes
+0x60  01 00 0b: String: [toLowerCase], 11 bytes
+0x61  01 00 14: String: [()Ljava/lang/String;], 20 bytes
+0x62  01 00 0a: String: [startsWith], 10 bytes
+0x63  07 00 68: Class: [java/lang/invoke/LambdaMetafactory]
+0x64  0c 00 69 00 6d: Name/type: [metafactory] [(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;]
+0x65  0c 00 1b 00 1c: Name/type: [][]
+0x66  0c 00 19 00 1a: Name/type: [][]
+0x67  0c 00 17 00 18: Name/type: [][]
+0x68  01 00 22: String: [java/lang/invoke/LambdaMetafactory], 34 bytes
+0x69  01 00 0b: String: [metafactory], 11 bytes
+0x6a  07 00 6f: Class: []
+0x6b  01 00 06: String: [Lookup], 6 bytes
+0x6c  01 00 0c: String: [InnerClasses], 12 bytes
+0x6d  01 00 cc: String: [(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;], 204 bytes
+0x6e  07 00 70: Class: []
+0x6f  01 00 25: String: [java/lang/invoke/MethodHandles$Lookup], 37 bytes
+0x70  01 00 1e: String: [java/lang/invoke/MethodHandles], 30 bytes
+
+00 0f Class Streams
+00 10 Super Class java/lang/Object
+00 00 00 00 00 05 00 00 00 11 Method <init>
+00 12   Descriptor ()V
+00 01 00 13     Attribute Code (size: 29)
+    Code: 2a  2ab7  b700  0001  01b1  b1
+2a       aload0
+b7 00 01       invokespecial java/lang/Object <init> ()V
+b1       return
+00 09 00 15 Method main
+00 16   Descriptor ([Ljava/lang/String;)V
+00 01 00 13     Attribute Code (size: 86)
+    Code:
+    2a                   aload0
+    b8 00 02             invokestatic java/util/Arrays asList ([Ljava/lang/Object;)Ljava/util/List;
+    4c                   astore_1
+    2b                   aload1
+    b9 00 03 01 00       invokeinterface List.stream() 1
+    ba 00 04 00 00       invokedynamic Predicate.test() [LambdaMetafactory.metafactory(Streams.lambda$main$0())]
+    b9 00 05 02 00       invokeinterface Stream.filter() 2
+    ba 00 06 00 00       invokedynamic Function.apply() [LambdaMetafactory.metafactory(Streams.lambda$main$1())]
+    b9 00 07 02 00       invokeinterface Stream.map() 2
+    ba 00 08 00 00       invokedynamic Consumer.accept() [LambdaMetafactory.metafactory(Streams.lambda$main$2())]
+    b9 00 09 02 00       invokeinterface Stream.forEach() 2
+    b1                   return
+10 0a 00 17 Method lambda$main$2
+00 18   Descriptor (Ljava/lang/String;)V
+00 01 00 13     Attribute Code (size: 32)
+    Code:
+    b2 00 0a    getstatic java/lang/System out Ljava/io/PrintStream;
+    2a          aload0
+    b6 00 0b    invokevirtual java/io/PrintStream println (Ljava/lang/String;)V
+    b1          return
+10 0a 00 19 Method lambda$main$1
+00 1a   Descriptor (Ljava/lang/String;)Ljava/lang/String;
+00 01 00 13     Attribute Code (size: 29)
+    Code:
+    2a              aload0
+    b6 00 0c        invokevirtual java/lang/String toLowerCase ()Ljava/lang/String;
+    b0              areturn
+10 0a 00 1b Method lambda$main$0
+00 1c   Descriptor (Ljava/lang/String;)Z
+00 01 00 13     Attribute Code (size: 31)
+    Code:
+    2a          aload0
+    12 0d       ldc "A"
+    b6 00 0e    invokevirtual java/lang/String startsWith (Ljava/lang/String;)Z
+    ac          ireturn
+
+
+                  00 00  00 01 00 14 00 00 00 06
+00 01 00 00 00 08
+
+00 03: attribute count (3)
+
+Attribute 1:
+  00 1d: name (SourceFile)
+  00 00 00 02: length
+  00 1e: source file index ("Streams.java")
+
+Attribute 2:
+  00 6c: name (InnerClasses)
+  00 00 00 0a: size
+  data:
+    00 01: number of classes
+      00 6a: inner class
+      00 6e: outer class
+      00 6b: inner name
+      00 19: inner class access flags
+
+Attribute 3:
+  00 24: name (BootstrapMethods)
+  00 00 00 20 (size)
+  00 03: number of bootstrap method
+    00 25: method ref [java/lang/invoke/LambdaMetafactory] [metafactory]
+    00 03: num of bootstrap arguments
+    00 26: arg 1 [(Ljava/lang/Object;)Z]
+    00 27: arg 2 [(Streams.lambda$main$0()]
+    00 28: arg 3 [(Ljava/lang/String;)Z]
+
+    00 25: method ref [java/lang/invoke/LambdaMetafactory] [metafactory]
+    00 03: num of bootstrap arguments
+    00 2c: arg 1 [(Ljava/lang/Object;)Ljava/lang/Object;]
+    00 2d: arg 2 [(Streams.lambda$main$1()]
+    00 2e: arg 3
+
+    00 25: method ref [java/lang/invoke/LambdaMetafactory] [metafactory]
+    00 03: num of bootstrap arguments
+    00 31: arg 1
+    00 32: arg 2 [(Streams.lambda$main$2()]
+    00 33: arg 3

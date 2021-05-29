@@ -3,13 +3,26 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::JavaClass;
+use crate::native_java_classes::NativeListClass;
+use crate::streams::NativeStreamInstance;
+use crate::streams::NativePredicateInstance;
+use crate::streams::NativeFunctionInstance;
+use crate::streams::NativeConsumerInstance;
 
 //////////////////////////////////////////
+// I don't know if this is the best way to implement it, but it's the only way I saw
+// to be able to push a wide variety of objects in the JVM stack
 pub enum JavaObject {
     STRING(String),
     INSTANCE(String, HashMap<String, Rc<JavaObject>>),
     ARRAY(RefCell<Vec<Rc<JavaObject>>>),
-    INTEGER(i32)
+    INTEGER(i32),
+    BOOLEAN(bool),
+    InstanceList(RefCell<NativeListClass>),
+    InstanceStream(RefCell<NativeStreamInstance>),
+    InstancePredicate(RefCell<NativePredicateInstance>),
+    InstanceFunction(RefCell<NativeFunctionInstance>),
+    InstanceConsumer(RefCell<NativeConsumerInstance>)
 }
 
 //////////////////////////////////////////
@@ -91,11 +104,20 @@ impl JVM {
         }
     }
 
-    fn print_java_object(&self, java_object: &JavaObject) {
+    pub fn print_java_object(&self, java_object: &JavaObject) {
         match java_object {
             JavaObject::STRING(st) => print!("\"{}\"", st),
             JavaObject::INTEGER(int) => print!("{}", int),
-            JavaObject::INSTANCE(cl, _) => print!("{} instance", cl),
+            JavaObject::BOOLEAN(b) => print!("{}", b),
+            JavaObject::INSTANCE(cl, keys) => {
+                print!("{} instance (", cl);
+                for (key, value) in keys {
+                    print!("{}:", key);
+                    self.print_java_object(value);
+                    print!("  ");
+                }
+                print!(")");
+            },
             JavaObject::ARRAY(array) => {
                 print!("[");
                 for sub_obj in array.borrow().iter() {
@@ -103,7 +125,12 @@ impl JVM {
                     print!(", ");
                 }
                 print!("]")
-            }
+            },
+            JavaObject::InstanceList(_) => print!("List instance"),
+            JavaObject::InstanceStream(_) => print!("Stream instance"),
+            JavaObject::InstanceFunction(_) => print!("Function instance"),
+            JavaObject::InstancePredicate(_) => print!("Predicate instance"),
+            JavaObject::InstanceConsumer(_) => print!("Consumer instance"),
         };
     }
 }
