@@ -3,7 +3,7 @@ A far-from-complete Java Virtual Machine made in Rust
 
 ## What is supported
 
-At this point it is a very primitive JVM. The `Hello.java`, `Arithm.java` and `Streams.java` show what is currently being supported.
+At this point it is a very primitive JVM. The `Hello.java`, `Arithm.java`, `Streams.java` and `Mandelbrot.java`  show what is currently being supported.
 
 See also the [Bytecode overview](bytecode.md) and the [Java Streams overview](streams.md) to have a glimpse of how Java/Scala/Kotlin code are converted into bytecode instructions.
 
@@ -15,6 +15,10 @@ The main use is to run `jvm <class name>` (the corresponding .class file must be
 > cargo build
    Compiling jvm v0.1.0 (/Users/user/JVM)
     Finished dev [unoptimized + debuginfo] target(s) in 1.69s
+
+> cargo build --release
+   Compiling jvm v0.1.0 (/Users/user/JVM)
+    Finished dev [optimized] target(s) in 5.32s
 
 > ./target/debug/jvm Arithm 43
 Convert 43 into 21
@@ -30,4 +34,57 @@ Execute 3       return
 > ./target/debug/jvm Streams Alice Bob Charlie Anna Delta
 alice
 anna
+
+> ./target/release/jvm Mandelbrot
+:::::::::::::::::::::::=======================***************************************===================================
+::::::::::::::::::::::==================***************************************************=============================
+::::::::::::::::::::===============***********************************........--.......*********========================
+:::::::::::::::::::=============*********************************.........---X------.......********=====================
+:::::::::::::::::============********************************...........------XX------........********==================
+::::::::::::::::==========********************************............----------X--XXX--.........********===============
+:::::::::::::::========********************************..............------------X--------.........*********============
+::::::::::::::=======********************************..............-----------XXXX-X--------........**********==========
+:::::::::::::======*******************************...............--------XXXX-XXXXXX-XX--------.......**********========
+::::::::::::=====*******************************..............--------------XXXXXXXXXXX-----------.....***********======
+:::::::::::=====******************************.............---------------XXXXXXXXXXXX--------------....***********=====
+:::::::::::===*****************************............---------X-----------XXXXXXXXX--------------X--....***********===
+::::::::::===****************************..........-----------XX-----XXX-XXXXXXXXXXXXXXXX-XX-------X----...***********==
+:::::::::===**************************........-----------------XXXX-XXXXXXXXXXXXXXXXXXXXXXXXX---X-X-XX---..************=
+:::::::::==*************************.....---------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX------..************
+::::::::==**********************....-----------------------X--XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX------...***********
+::::::::=*******************....-------------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX--------...**********
+:::::::=**************.......------------------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX---X---...**********
+:::::::=********..........--------XX--------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX---....*********
+::::::=******...........-------------XXXX----XX-X-------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX-----....*********
+::::::=***............----------------XXXXXXXXXXXXX-----XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX-----.....********
+::::::**............--------------X--XXXXXXXXXXXXXXXX---XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX----.....********
+::::::*...........----------XX-----XXXXXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX-----.....********
+::::::..........--------------X-X--XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX------......*******
+::::::----------------------X--XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX--------......*******
+::::::XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX----------......*******
+::::::----------------------X--XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX--------......*******
+::::::..........--------------X-X--XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX------......*******
+::::::*...........----------XX-----XXXXXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX-----.....********
+::::::**............--------------X--XXXXXXXXXXXXXXXX---XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX----.....********
+::::::=***............----------------XXXXXXXXXXXXX-----XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX-----.....********
+::::::=******...........-------------XXXX----XX-X-------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX-----....*********
+:::::::=********..........--------XX--------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX---....*********
+:::::::=**************.......------------------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX---X---...**********
+::::::::=*******************....-------------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX--------...**********
+::::::::==**********************....-----------------------X--XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX------...***********
+:::::::::==*************************.....---------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX------..************
+:::::::::===**************************........-----------------XXXX-XXXXXXXXXXXXXXXXXXXXXXXXX---X-X-XX---..************=
+::::::::::===****************************..........-----------XX-----XXX-XXXXXXXXXXXXXXXX-XX-------X----...***********==
+:::::::::::===*****************************............---------X-----------XXXXXXXXX--------------X--....***********===
+:::::::::::=====******************************.............---------------XXXXXXXXXXXX--------------....***********=====
+::::::::::::=====*******************************..............--------------XXXXXXXXXXX-----------.....***********======
+:::::::::::::======*******************************...............--------XXXX-XXXXXX-XX--------.......**********========
+::::::::::::::=======********************************..............-----------XXXX-X--------........**********==========
+:::::::::::::::========********************************..............------------X--------.........*********============
+::::::::::::::::==========********************************............----------X--XXX--.........********===============
+:::::::::::::::::============********************************...........------XX------........********==================
+:::::::::::::::::::=============*********************************.........---X------.......********=====================
+::::::::::::::::::::===============***********************************........--.......*********========================
+::::::::::::::::::::::==================***************************************************=============================
+:::::::::::::::::::::::=======================***************************************===================================
 ```

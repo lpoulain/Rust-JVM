@@ -64,7 +64,20 @@ impl Blob {
     pub fn get_u8(&mut self) -> u8 {
         let offset = self.offset;
         self.offset += 1;
-        return self.data[offset]
+        return self.data[offset];
+    }
+
+    pub fn get_i8(&mut self) -> i8 {
+        let offset = self.offset;
+        self.offset += 1;
+        return self.data[offset] as i8;
+    }
+
+    pub fn get_i16(&mut self) -> i16 {
+        let offset = self.offset;
+        let array: [u8; 2] = [self.data[offset+1], self.data[offset]];
+        self.offset += 2;
+        return i16::from_ne_bytes(array);
     }
 
     pub fn get_u16size(&mut self) -> usize {
@@ -78,8 +91,15 @@ impl Blob {
         self.offset += 4;
         return usize::from(self.data[offset]) * 16777216
             + usize::from(self.data[offset+1]) * 65536
-            + usize::from(self.data[offset+2]) * 156
+            + usize::from(self.data[offset+2]) * 256
             + usize::from(self.data[offset+3]);
+    }
+
+    pub fn get_f32(&mut self) -> f32 {
+        let offset = self.offset;
+        let array: [u8; 4] = [self.data[offset+3], self.data[offset+2], self.data[offset+1], self.data[offset]];
+        self.offset += 4;
+        return f32::from_ne_bytes(array);
     }
 
     pub fn rewind(&mut self) {
@@ -464,6 +484,17 @@ impl ConstantMethodHandle {
 }
 
 ///////////////////////////////////////////
+pub struct ConstantFloat {
+    pub value: f32
+}
+
+impl ConstantFloat {
+    pub fn print(&self) {
+        println!("Float: {}", self.value);
+    }
+}
+
+///////////////////////////////////////////
 pub struct AttributeBootstrapMethod {
     pub class_name: String,
     pub method_name: String,
@@ -558,6 +589,7 @@ impl BytecodeClass {
         let mut constants_name_type: HashMap<usize, ConstantNameType> = HashMap::new();
         let mut constants_method_handle: HashMap<usize, ConstantMethodHandle> = HashMap::new();
         let mut constants_dynamic: HashMap<usize, ConstantInvokeDynamic> = HashMap::new();
+        let mut constants_float: HashMap<usize, ConstantFloat> = HashMap::new();
 
         while constant_idx < constant_pool_count {
             opcode = data.get_u8();
@@ -569,6 +601,14 @@ impl BytecodeClass {
                     if debug >= 2 { constant_string.print(); }
                     constants_string.insert(constant_idx, constant_string);
                 },
+                // CONSTANT_Fload
+                4 => {
+                    let constant_float = ConstantFloat {
+                        value: data.get_f32()
+                    };
+                    if debug >= 2 { constant_float.print(); }
+                    constants_float.insert(constant_idx, constant_float);
+                }
                 // CONSTANT_Class
                 7 => {
                     let constant_class = ConstantClass::new(&mut data);
@@ -726,7 +766,8 @@ impl BytecodeClass {
                     }
 
                     let bytecode = ByteCode::new(&mut code, &constants_class, &constants_string, &constants_string_ref,
-                        &constants_method, &constants_field, &constants_name_type, &constants_dynamic, debug);
+                        &constants_method, &constants_field, &constants_name_type, &constants_dynamic, &constants_float,
+                        debug);
                     methods.insert(method_name.clone(), bytecode);
 
                     data.skip(attribute_size - 8 - code_size);

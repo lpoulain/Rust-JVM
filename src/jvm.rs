@@ -17,6 +17,8 @@ pub enum JavaObject {
     INSTANCE(String, HashMap<String, Rc<JavaObject>>),
     ARRAY(RefCell<Vec<Rc<JavaObject>>>),
     INTEGER(i32),
+    FLOAT(f32),
+    DOUBLE(f64),
     BOOLEAN(bool),
     InstanceList(RefCell<NativeListClass>),
     InstanceStream(RefCell<NativeStreamInstance>),
@@ -52,10 +54,7 @@ impl Classes {
 
 pub struct JVM {
     stack: Vec<Rc<JavaObject>>,
-    pub var0: Rc<JavaObject>,
-    pub var1: Rc<JavaObject>,
-    pub var2: Rc<JavaObject>,
-    pub var3: Rc<JavaObject>,
+    pub variables: [Rc<JavaObject>; 16],
     pub debug: u8
 }
 
@@ -66,13 +65,14 @@ impl JVM {
             java_args.push(Rc::new(JavaObject::STRING(String::from(args[i]))));
             if debug >= 1 { println!("Arg: {}", args[i]); }
         }
+        let var = Rc::new(JavaObject::INTEGER(0));
 
         JVM {
             stack: Vec::new(),
-            var0: Rc::new(JavaObject::ARRAY(RefCell::new(java_args))),
-            var1: Rc::new(JavaObject::INTEGER(0)),
-            var2: Rc::new(JavaObject::INTEGER(0)),
-            var3: Rc::new(JavaObject::INTEGER(0)),
+            variables: [Rc::new(JavaObject::ARRAY(RefCell::new(java_args))), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone()],
             debug: debug
         }
     }
@@ -96,6 +96,22 @@ impl JVM {
         };
     }
 
+    pub fn pop_float(&mut self) -> f32 {
+        let arg = self.pop();
+        return match &*arg {
+            JavaObject::FLOAT(f) => *f,
+            _ => panic!("Expected float")
+        };
+    }
+
+    pub fn pop_double(&mut self) -> f64 {
+        let arg = self.pop();
+        return match &*arg {
+            JavaObject::DOUBLE(f) => *f,
+            _ => panic!("Expected float")
+        };
+    }
+
     pub fn print_stack(&self) {
         for frame in &self.stack {
             print!("> ");
@@ -109,6 +125,8 @@ impl JVM {
             JavaObject::STRING(st) => print!("\"{}\"", st),
             JavaObject::INTEGER(int) => print!("{}", int),
             JavaObject::BOOLEAN(b) => print!("{}", b),
+            JavaObject::FLOAT(f) => print!("{}", f),
+            JavaObject::DOUBLE(d) => print!("{}", d),
             JavaObject::INSTANCE(cl, keys) => {
                 print!("{} instance (", cl);
                 for (key, value) in keys {

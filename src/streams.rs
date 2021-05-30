@@ -108,7 +108,7 @@ impl JavaClass for NativeStreamClass {
                                 loop {
                                     match current_function.borrow_mut().next_object(0, &*stream.borrow(), jvm, &classes) {
                                         Some(object) => {
-                                            jvm.var0 = object;
+                                            jvm.variables[0] = object;
                                             class.execute_method(jvm, classes, &consumer.borrow().method_name);
                                         },
                                         None => break
@@ -249,7 +249,7 @@ impl StreamFunction for NativePredicateInstance {
 
                     match object {
                         Some(obj) => {
-                            jvm.var0 = obj.clone();
+                            jvm.variables[0] = obj.clone();
                             class.execute_method(jvm, classes, &self.method_name);
                             let result = jvm.pop();
                             match &*result {
@@ -317,7 +317,7 @@ impl StreamFunction for NativeFunctionInstance {
 
                 match object {
                     Some(obj) => {
-                        jvm.var0 = obj;
+                        jvm.variables[0] = obj;
                         class.execute_method(jvm, classes, &self.method_name);
                         return Some(jvm.pop());
                     },
