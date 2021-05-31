@@ -766,6 +766,16 @@ impl ByteCodeInstruction for InstrIInc {
     fn print(&self) { println!("      iinc {} {}", self.idx, self.count); }
 }
 
+pub struct InstrI2L {}
+impl ByteCodeInstruction for InstrI2L {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_int();
+        jvm.push(Rc::new(JavaObject::LONG(nb as i64)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      i2l"); }
+}
+
 pub struct InstrI2F {}
 impl ByteCodeInstruction for InstrI2F {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
@@ -774,6 +784,66 @@ impl ByteCodeInstruction for InstrI2F {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      i2f"); }
+}
+
+pub struct InstrI2D {}
+impl ByteCodeInstruction for InstrI2D {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_int();
+        jvm.push(Rc::new(JavaObject::DOUBLE(nb as f64)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      i2d"); }
+}
+
+pub struct InstrL2I {}
+impl ByteCodeInstruction for InstrL2I {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::INTEGER(nb as i32)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      l2i"); }
+}
+
+pub struct InstrL2F {}
+impl ByteCodeInstruction for InstrL2F {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::FLOAT(nb as f32)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      l2f"); }
+}
+
+pub struct InstrL2D {}
+impl ByteCodeInstruction for InstrL2D {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::DOUBLE(nb as f64)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      l2d"); }
+}
+
+pub struct InstrF2I {}
+impl ByteCodeInstruction for InstrF2I {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_float();
+        jvm.push(Rc::new(JavaObject::INTEGER(nb as i32)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      f2i"); }
+}
+
+pub struct InstrF2L {}
+impl ByteCodeInstruction for InstrF2L {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_float();
+        jvm.push(Rc::new(JavaObject::LONG(nb as i64)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      f2l"); }
 }
 
 pub struct InstrF2D {}
@@ -786,6 +856,26 @@ impl ByteCodeInstruction for InstrF2D {
     fn print(&self) { println!("      f2d"); }
 }
 
+pub struct InstrD2I {}
+impl ByteCodeInstruction for InstrD2I {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_double();
+        jvm.push(Rc::new(JavaObject::INTEGER(nb as i32)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      d2i"); }
+}
+
+pub struct InstrD2L {}
+impl ByteCodeInstruction for InstrD2L {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_double();
+        jvm.push(Rc::new(JavaObject::LONG(nb as i64)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      d2l"); }
+}
+
 ///////////// 0x9
 
 pub struct InstrD2F {}
@@ -795,7 +885,7 @@ impl ByteCodeInstruction for InstrD2F {
         jvm.push(Rc::new(JavaObject::FLOAT(nb as f32)));
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      2df"); }
+    fn print(&self) { println!("      d2f"); }
 }
 
 pub struct InstrFCmpl {}
@@ -1383,8 +1473,17 @@ impl ByteCode {
                 0x82 => Box::new(InstrIXor {}),
                 0x83 => Box::new(InstrLXor {}),
                 0x84 => Box::new(InstrIInc { idx: data.get_u8(), count: data.get_i8() }),
+                0x85 => Box::new(InstrI2L {}),
                 0x86 => Box::new(InstrI2F {}),
+                0x87 => Box::new(InstrI2D {}),
+                0x88 => Box::new(InstrL2I {}),
+                0x89 => Box::new(InstrL2F {}),
+                0x8a => Box::new(InstrL2D {}),
+                0x8b => Box::new(InstrF2I {}),
+                0x8c => Box::new(InstrF2L {}),
                 0x8d => Box::new(InstrF2D {}),
+                0x8e => Box::new(InstrD2I {}),
+                0x8f => Box::new(InstrD2L {}),
                 0x90 => Box::new(InstrD2F {}),
                 0x95 => Box::new(InstrFCmpl {}),
                 0x96 => Box::new(InstrFCmpg {}),
