@@ -19,6 +19,7 @@ pub enum JavaObject {
     INTEGER(i32),
     FLOAT(f32),
     DOUBLE(f64),
+    LONG(i64),
     BOOLEAN(bool),
     InstanceList(RefCell<NativeListClass>),
     InstanceStream(RefCell<NativeStreamInstance>),
@@ -96,6 +97,14 @@ impl JVM {
         };
     }
 
+    pub fn pop_long(&mut self) -> i64 {
+        let arg = self.pop();
+        return match &*arg {
+            JavaObject::LONG(long) => *long,
+            _ => panic!("Expected long")
+        };
+    }
+
     pub fn pop_float(&mut self) -> f32 {
         let arg = self.pop();
         return match &*arg {
@@ -107,8 +116,8 @@ impl JVM {
     pub fn pop_double(&mut self) -> f64 {
         let arg = self.pop();
         return match &*arg {
-            JavaObject::DOUBLE(f) => *f,
-            _ => panic!("Expected float")
+            JavaObject::DOUBLE(d) => *d,
+            _ => panic!("Expected double")
         };
     }
 
@@ -124,6 +133,7 @@ impl JVM {
         match java_object {
             JavaObject::STRING(st) => print!("\"{}\"", st),
             JavaObject::INTEGER(int) => print!("{}", int),
+            JavaObject::LONG(long) => print!("{}", long),
             JavaObject::BOOLEAN(b) => print!("{}", b),
             JavaObject::FLOAT(f) => print!("{}", f),
             JavaObject::DOUBLE(d) => print!("{}", d),

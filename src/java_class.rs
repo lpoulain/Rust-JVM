@@ -80,6 +80,21 @@ impl Blob {
         return i16::from_ne_bytes(array);
     }
 
+    pub fn get_i32(&mut self) -> i32 {
+        let offset = self.offset;
+        let array: [u8; 4] = [self.data[offset+3], self.data[offset+2], self.data[offset+1], self.data[offset]];
+        self.offset += 4;
+        return i32::from_ne_bytes(array);
+    }
+
+    pub fn get_i64(&mut self) -> i64 {
+        let offset = self.offset;
+        let array: [u8; 8] = [self.data[offset+7], self.data[offset+6], self.data[offset+5], self.data[offset+4],
+            self.data[offset+3], self.data[offset+2], self.data[offset+1], self.data[offset]];
+        self.offset += 8;
+        return i64::from_ne_bytes(array);
+    }
+
     pub fn get_u16size(&mut self) -> usize {
         let offset = self.offset;
         self.offset += 2;
@@ -100,6 +115,14 @@ impl Blob {
         let array: [u8; 4] = [self.data[offset+3], self.data[offset+2], self.data[offset+1], self.data[offset]];
         self.offset += 4;
         return f32::from_ne_bytes(array);
+    }
+
+    pub fn get_f64(&mut self) -> f64 {
+        let offset = self.offset;
+        let array: [u8; 8] = [self.data[offset+7], self.data[offset+6], self.data[offset+5], self.data[offset+4],
+            self.data[offset+3], self.data[offset+2], self.data[offset+1], self.data[offset]];
+        self.offset += 8;
+        return f64::from_ne_bytes(array);
     }
 
     pub fn rewind(&mut self) {
@@ -489,8 +512,62 @@ pub struct ConstantFloat {
 }
 
 impl ConstantFloat {
+    pub fn new (data: &mut Blob) -> ConstantFloat {
+        ConstantFloat {
+            value: data.get_f32()
+        }
+    }
+
     pub fn print(&self) {
         println!("Float: {}", self.value);
+    }
+}
+
+pub struct ConstantDouble {
+    pub value: f64
+}
+
+impl ConstantDouble {
+    pub fn new (data: &mut Blob) -> ConstantDouble {
+        ConstantDouble {
+            value: data.get_f64()
+        }
+    }
+
+    pub fn print(&self) {
+        println!("Double: {}", self.value);
+    }
+}
+
+pub struct ConstantInteger {
+    pub value: i32
+}
+
+impl ConstantInteger {
+    pub fn new (data: &mut Blob) -> ConstantInteger {
+        ConstantInteger {
+            value: data.get_i32()
+        }
+    }
+
+    pub fn print(&self) {
+        println!("Integer: {}", self.value);
+    }
+}
+
+pub struct ConstantLong {
+    pub value: i64
+}
+
+impl ConstantLong {
+    pub fn new (data: &mut Blob) -> ConstantLong {
+        ConstantLong {
+            value: data.get_i64()
+        }
+    }
+
+    pub fn print(&self) {
+        println!("Long: {}", self.value);
     }
 }
 
@@ -589,7 +666,10 @@ impl BytecodeClass {
         let mut constants_name_type: HashMap<usize, ConstantNameType> = HashMap::new();
         let mut constants_method_handle: HashMap<usize, ConstantMethodHandle> = HashMap::new();
         let mut constants_dynamic: HashMap<usize, ConstantInvokeDynamic> = HashMap::new();
+        let mut constants_integer: HashMap<usize, ConstantInteger> = HashMap::new();
+        let mut constants_long: HashMap<usize, ConstantLong> = HashMap::new();
         let mut constants_float: HashMap<usize, ConstantFloat> = HashMap::new();
+        let mut constants_double: HashMap<usize, ConstantDouble> = HashMap::new();
 
         while constant_idx < constant_pool_count {
             opcode = data.get_u8();
@@ -601,14 +681,30 @@ impl BytecodeClass {
                     if debug >= 2 { constant_string.print(); }
                     constants_string.insert(constant_idx, constant_string);
                 },
-                // CONSTANT_Fload
+                // CONSTANT_Integer
+                3 => {
+                    let constant_integer = ConstantInteger::new(&mut data);
+                    if debug >= 2 { constant_integer.print(); }
+                    constants_integer.insert(constant_idx, constant_integer);
+                },
+                // CONSTANT_Float
                 4 => {
-                    let constant_float = ConstantFloat {
-                        value: data.get_f32()
-                    };
+                    let constant_float = ConstantFloat::new(&mut data);
                     if debug >= 2 { constant_float.print(); }
                     constants_float.insert(constant_idx, constant_float);
-                }
+                },
+                // CONSTANT_Long
+                5 => {
+                    let constant_long = ConstantLong::new(&mut data);
+                    if debug >= 2 { constant_long.print(); }
+                    constants_long.insert(constant_idx, constant_long);
+                },
+                // CONSTANT_Double
+                6 => {
+                    let constant_double = ConstantDouble::new(&mut data);
+                    if debug >= 2 { constant_double.print(); }
+                    constants_double.insert(constant_idx, constant_double);
+                },
                 // CONSTANT_Class
                 7 => {
                     let constant_class = ConstantClass::new(&mut data);
@@ -765,8 +861,9 @@ impl BytecodeClass {
                         println!();
                     }
 
-                    let bytecode = ByteCode::new(&mut code, &constants_class, &constants_string, &constants_string_ref,
-                        &constants_method, &constants_field, &constants_name_type, &constants_dynamic, &constants_float,
+                    let bytecode = ByteCode::new(&mut code, &constants_class, &constants_string,
+                        &constants_string_ref, &constants_method, &constants_field, &constants_name_type,
+                        &constants_dynamic, &constants_integer, &constants_long, &constants_float, &constants_double,
                         debug);
                     methods.insert(method_name.clone(), bytecode);
 
