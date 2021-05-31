@@ -121,49 +121,49 @@ impl ByteCodeInstruction for InstrBiPush {
     fn print(&self) { println!("      bipush {}", self.value); }
 }
 
-pub struct InstrILoad { value: u8 }
+pub struct InstrILoad { variable: u8 }
 impl ByteCodeInstruction for InstrILoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.value as usize].clone());
+        jvm.push(jvm.variables[self.variable as usize].clone());
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      iload {}", self.value); }
+    fn print(&self) { println!("      iload {}", self.variable); }
 }
 
-pub struct InstrLLoad { value: u8 }
+pub struct InstrLLoad { variable: u8 }
 impl ByteCodeInstruction for InstrLLoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.value as usize].clone());
+        jvm.push(jvm.variables[self.variable as usize].clone());
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      lload {}", self.value); }
+    fn print(&self) { println!("      lload {}", self.variable); }
 }
 
-pub struct InstrFLoad { value: u8 }
+pub struct InstrFLoad { variable: u8 }
 impl ByteCodeInstruction for InstrFLoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.value as usize].clone());
+        jvm.push(jvm.variables[self.variable as usize].clone());
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      fload {}", self.value); }
+    fn print(&self) { println!("      fload {}", self.variable); }
 }
 
-pub struct InstrDLoad { value: u8 }
+pub struct InstrDLoad { variable: u8 }
 impl ByteCodeInstruction for InstrDLoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.value as usize].clone());
+        jvm.push(jvm.variables[self.variable as usize].clone());
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      dload {}", self.value); }
+    fn print(&self) { println!("      dload {}", self.variable); }
 }
 
-pub struct InstrALoad { value: u8 }
+pub struct InstrALoad { variable: u8 }
 impl ByteCodeInstruction for InstrALoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.value as usize].clone());
+        jvm.push(jvm.variables[self.variable as usize].clone());
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      aload {}", self.value); }
+    fn print(&self) { println!("      aload {}", self.variable); }
 }
 
 pub struct InstrLdc { value: Rc<JavaObject> }
@@ -252,31 +252,49 @@ impl ByteCodeInstruction for InstrAALoad {
     fn print(&self) { println!("      aaload"); }
 }
 
-pub struct InstrIStore { value: u8 }
+pub struct InstrIStore { variable: u8 }
 impl ByteCodeInstruction for InstrIStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.value as usize] = jvm.pop().clone();
+        jvm.variables[self.variable as usize] = jvm.pop().clone();
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      istore {}", self.value); }
+    fn print(&self) { println!("      istore {}", self.variable); }
 }
 
-pub struct InstrAStore { value: u8 }
-impl ByteCodeInstruction for InstrAStore {
+pub struct InstrLStore { variable: u8 }
+impl ByteCodeInstruction for InstrLStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.value as usize] = jvm.pop().clone();
+        jvm.variables[self.variable as usize] = jvm.pop().clone();
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      astore {}", self.value); }
+    fn print(&self) { println!("      lstore {}", self.variable); }
 }
 
-pub struct InstrFStore { value: u8 }
+pub struct InstrFStore { variable: u8 }
 impl ByteCodeInstruction for InstrFStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.value as usize] = jvm.pop().clone();
+        jvm.variables[self.variable as usize] = jvm.pop().clone();
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      fstore {}", self.value); }
+    fn print(&self) { println!("      fstore {}", self.variable); }
+}
+
+pub struct InstrDStore { variable: u8 }
+impl ByteCodeInstruction for InstrDStore {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.variables[self.variable as usize] = jvm.pop().clone();
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dstore {}", self.variable); }
+}
+
+pub struct InstrAStore { variable: u8 }
+impl ByteCodeInstruction for InstrAStore {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.variables[self.variable as usize] = jvm.pop().clone();
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      astore {}", self.variable); }
 }
 
 pub struct InstrIStore0 {}
@@ -389,7 +407,71 @@ impl ByteCodeInstruction for InstrAStore3 {
     fn print(&self) { println!("      astore_3"); }
 }
 
+pub struct InstrIAStore {}
+impl ByteCodeInstruction for InstrIAStore {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let object = jvm.pop();
+        let idx = jvm.pop_int();
+        let arg = jvm.pop();
+        let array = match &*arg {
+            JavaObject::ARRAY(array) => array,
+            _ => panic!("Excepted array in the stack")
+        };
+        array.borrow_mut()[idx as usize] = object;
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      iastore"); }
+}
+
 ///////////// 0x5
+
+pub struct InstrLAStore {}
+impl ByteCodeInstruction for InstrLAStore {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let object = jvm.pop();
+        let idx = jvm.pop_int();
+        let arg = jvm.pop();
+        let array = match &*arg {
+            JavaObject::ARRAY(array) => array,
+            _ => panic!("Excepted array in the stack")
+        };
+        array.borrow_mut()[idx as usize] = object;
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lastore"); }
+}
+
+pub struct InstrFAStore {}
+impl ByteCodeInstruction for InstrFAStore {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let object = jvm.pop();
+        let idx = jvm.pop_int();
+        let arg = jvm.pop();
+        let array = match &*arg {
+            JavaObject::ARRAY(array) => array,
+            _ => panic!("Excepted array in the stack")
+        };
+        array.borrow_mut()[idx as usize] = object;
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      fastore"); }
+}
+
+pub struct InstrDAStore {}
+impl ByteCodeInstruction for InstrDAStore {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let object = jvm.pop();
+        let idx = jvm.pop_int();
+        let arg = jvm.pop();
+        let array = match &*arg {
+            JavaObject::ARRAY(array) => array,
+            _ => panic!("Excepted array in the stack")
+        };
+        array.borrow_mut()[idx as usize] = object;
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dastore"); }
+}
 
 pub struct InstrAAStore {}
 impl ByteCodeInstruction for InstrAAStore {
@@ -405,6 +487,30 @@ impl ByteCodeInstruction for InstrAAStore {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aastore"); }
+}
+
+pub struct InstrPop { }
+impl ByteCodeInstruction for InstrPop {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.pop();
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      pop"); }
+}
+
+pub struct InstrPop2 { }
+impl ByteCodeInstruction for InstrPop2 {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let arg = jvm.pop();
+        match &*arg {
+            JavaObject::DOUBLE(_) | JavaObject::LONG(_) => {},
+            _ => {
+                jvm.pop();
+            }
+        };
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      pop"); }
 }
 
 pub struct InstrDup { }
@@ -888,6 +994,26 @@ impl ByteCodeInstruction for InstrD2F {
     fn print(&self) { println!("      d2f"); }
 }
 
+pub struct InstrLCmp {}
+impl ByteCodeInstruction for InstrLCmp {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb2 = jvm.pop_long();
+        let nb1 = jvm.pop_long();
+        let result: i32;
+        if nb1 == nb2 {
+            result = 0;
+        } else if nb1 > nb2 {
+            result = 1;
+        } else  {
+            result = -1;
+        }
+
+        jvm.push(Rc::new(JavaObject::INTEGER(result)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lcmp"); }
+}
+
 pub struct InstrFCmpl {}
 impl ByteCodeInstruction for InstrFCmpl {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
@@ -926,6 +1052,46 @@ impl ByteCodeInstruction for InstrFCmpg {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fcmpg"); }
+}
+
+pub struct InstrDCmpl {}
+impl ByteCodeInstruction for InstrDCmpl {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb2 = jvm.pop_double();
+        let nb1 = jvm.pop_double();
+        let mut result: i32 = 0;
+        if nb1 == f64::NAN || nb2 == f64::NAN {
+            result = -1;
+        } else if nb1 > nb2 {
+            result = 1;
+        } else if nb1 < nb2 {
+            result = -1;
+        }
+
+        jvm.push(Rc::new(JavaObject::INTEGER(result)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dcmpl"); }
+}
+
+pub struct InstrDCmpg {}
+impl ByteCodeInstruction for InstrDCmpg {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb2 = jvm.pop_double();
+        let nb1 = jvm.pop_double();
+        let mut result: i32 = 0;
+        if nb1 == f64::NAN || nb2 == f64::NAN {
+            result = 1;
+        } else if nb1 > nb2 {
+            result = 1;
+        } else if nb1 < nb2 {
+            result = -1;
+        }
+
+        jvm.push(Rc::new(JavaObject::INTEGER(result)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dcmpg"); }
 }
 
 pub struct InstrIfeq { branch: usize }
@@ -1204,6 +1370,30 @@ impl ByteCodeInstruction for InstrIReturn {
     fn print(&self) { println!("      ireturn"); }
 }
 
+pub struct InstrLReturn {}
+impl ByteCodeInstruction for InstrLReturn {
+    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        return InstrNextAction::RETURN;
+    }
+    fn print(&self) { println!("      lreturn"); }
+}
+
+pub struct InstrFReturn {}
+impl ByteCodeInstruction for InstrFReturn {
+    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        return InstrNextAction::RETURN;
+    }
+    fn print(&self) { println!("      freturn"); }
+}
+
+pub struct InstrDReturn {}
+impl ByteCodeInstruction for InstrDReturn {
+    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        return InstrNextAction::RETURN;
+    }
+    fn print(&self) { println!("      dreturn"); }
+}
+
 ///////////// 0xb
 
 pub struct InstrAReturn {}
@@ -1348,6 +1538,7 @@ impl ByteCode {
             let opcode = data.get_u8();
             let instr: Box<dyn ByteCodeInstruction> = match opcode {
                 0x00 => Box::new(InstrNop {}),
+//                0x01 => aconst_null
                 0x02 => Box::new(InstrIConst { value:-1 }),
                 0x03 => Box::new(InstrIConst { value:0 }),
                 0x04 => Box::new(InstrIConst { value:1 }),
@@ -1363,6 +1554,7 @@ impl ByteCode {
                 0x0e => Box::new(InstrDConst0 {}),
                 0x0f => Box::new(InstrDConst1 {}),
                 0x10 => Box::new(InstrBiPush { value: data.get_u8() }),
+//                0x11 => sipush
                 0x12 => {
                     let idx = data.get_u8() as usize;
                     match constants_string_ref.get(&idx) {
@@ -1399,49 +1591,81 @@ impl ByteCode {
                         }
                     }
                 },
-                0x15 => Box::new(InstrILoad { value: data.get_u8() }),
-                0x16 => Box::new(InstrLLoad { value: data.get_u8() }),
-                0x17 => Box::new(InstrFLoad { value: data.get_u8() }),
-                0x18 => Box::new(InstrDLoad { value: data.get_u8() }),
-                0x19 => Box::new(InstrALoad { value: data.get_u8() }),
-                0x1a => Box::new(InstrILoadN { variable: 0 }),
-                0x1b => Box::new(InstrILoadN { variable: 1 }),
-                0x1c => Box::new(InstrILoadN { variable: 2 }),
-                0x1d => Box::new(InstrILoadN { variable: 3 }),
-                0x1e => Box::new(InstrLLoadN { variable: 0 }),
-                0x1f => Box::new(InstrLLoadN { variable: 1 }),
-                0x20 => Box::new(InstrLLoadN { variable: 2 }),
-                0x21 => Box::new(InstrLLoadN { variable: 3 }),
-                0x22 => Box::new(InstrFLoadN { variable: 0 }),
-                0x23 => Box::new(InstrFLoadN { variable: 1 }),
-                0x24 => Box::new(InstrFLoadN { variable: 2 }),
-                0x25 => Box::new(InstrFLoadN { variable: 3 }),
-                0x26 => Box::new(InstrDLoadN { variable: 0 }),
-                0x27 => Box::new(InstrDLoadN { variable: 1 }),
-                0x28 => Box::new(InstrDLoadN { variable: 2 }),
-                0x29 => Box::new(InstrDLoadN { variable: 3 }),
-                0x2a => Box::new(InstrALoadN { variable: 0 }),
-                0x2b => Box::new(InstrALoadN { variable: 1 }),
-                0x2c => Box::new(InstrALoadN { variable: 2 }),
-                0x2d => Box::new(InstrALoadN { variable: 3 }),
+                0x15 => Box::new(InstrILoad { variable: data.get_u8() }),
+                0x16 => Box::new(InstrLLoad { variable: data.get_u8() }),
+                0x17 => Box::new(InstrFLoad { variable: data.get_u8() }),
+                0x18 => Box::new(InstrDLoad { variable: data.get_u8() }),
+                0x19 => Box::new(InstrALoad { variable: data.get_u8() }),
+                0x1a => Box::new(InstrILoad { variable: 0 }),
+                0x1b => Box::new(InstrILoad { variable: 1 }),
+                0x1c => Box::new(InstrILoad { variable: 2 }),
+                0x1d => Box::new(InstrILoad { variable: 3 }),
+                0x1e => Box::new(InstrLLoad { variable: 0 }),
+                0x1f => Box::new(InstrLLoad { variable: 1 }),
+                0x20 => Box::new(InstrLLoad { variable: 2 }),
+                0x21 => Box::new(InstrLLoad { variable: 3 }),
+                0x22 => Box::new(InstrFLoad { variable: 0 }),
+                0x23 => Box::new(InstrFLoad { variable: 1 }),
+                0x24 => Box::new(InstrFLoad { variable: 2 }),
+                0x25 => Box::new(InstrFLoad { variable: 3 }),
+                0x26 => Box::new(InstrDLoad { variable: 0 }),
+                0x27 => Box::new(InstrDLoad { variable: 1 }),
+                0x28 => Box::new(InstrDLoad { variable: 2 }),
+                0x29 => Box::new(InstrDLoad { variable: 3 }),
+                0x2a => Box::new(InstrALoad { variable: 0 }),
+                0x2b => Box::new(InstrALoad { variable: 1 }),
+                0x2c => Box::new(InstrALoad { variable: 2 }),
+                0x2d => Box::new(InstrALoad { variable: 3 }),
+//                0x2e => iaload
+//                0x2f => laload
+//                0x30 => faload
+//                0x31 => daload
                 0x32 => Box::new(InstrAALoad {}),
-                0x36 => Box::new(InstrIStore { value: data.get_u8() }),
-                0x38 => Box::new(InstrFStore { value: data.get_u8() }),
-                0x3a => Box::new(InstrAStore { value: data.get_u8() }),
-                0x3b => Box::new(InstrIStore0 {}),
-                0x3c => Box::new(InstrIStore1 {}),
-                0x3d => Box::new(InstrIStore2 {}),
-                0x3e => Box::new(InstrIStore3 {}),
-                0x43 => Box::new(InstrFStore0 {}),
-                0x44 => Box::new(InstrFStore1 {}),
-                0x45 => Box::new(InstrFStore2 {}),
-                0x46 => Box::new(InstrFStore3 {}),
-                0x4b => Box::new(InstrAStore0 {}),
-                0x4c => Box::new(InstrAStore1 {}),
-                0x4d => Box::new(InstrAStore2 {}),
-                0x4e => Box::new(InstrAStore3 {}),
+//                0x33 => baload
+//                0x34 => caload
+//                0x35 => saload
+                0x36 => Box::new(InstrIStore { variable: data.get_u8() }),
+                0x37 => Box::new(InstrLStore { variable: data.get_u8() }),
+                0x38 => Box::new(InstrFStore { variable: data.get_u8() }),
+                0x39 => Box::new(InstrDStore { variable: data.get_u8() }),
+                0x3a => Box::new(InstrAStore { variable: data.get_u8() }),
+                0x3b => Box::new(InstrIStore { variable: 0 }),
+                0x3c => Box::new(InstrIStore { variable: 1 }),
+                0x3d => Box::new(InstrIStore { variable: 2 }),
+                0x3e => Box::new(InstrIStore { variable: 3 }),
+                0x3f => Box::new(InstrLStore { variable: 0 }),
+                0x40 => Box::new(InstrLStore { variable: 1 }),
+                0x41 => Box::new(InstrLStore { variable: 2 }),
+                0x42 => Box::new(InstrLStore { variable: 3 }),
+                0x43 => Box::new(InstrFStore { variable: 0 }),
+                0x44 => Box::new(InstrFStore { variable: 1 }),
+                0x45 => Box::new(InstrFStore { variable: 2 }),
+                0x46 => Box::new(InstrFStore { variable: 3 }),
+                0x47 => Box::new(InstrDStore { variable: 0 }),
+                0x48 => Box::new(InstrDStore { variable: 1 }),
+                0x49 => Box::new(InstrDStore { variable: 2 }),
+                0x4a => Box::new(InstrDStore { variable: 3 }),
+                0x4b => Box::new(InstrAStore { variable: 0 }),
+                0x4c => Box::new(InstrAStore { variable: 1 }),
+                0x4d => Box::new(InstrAStore { variable: 2 }),
+                0x4e => Box::new(InstrAStore { variable: 3 }),
+                0x4f => Box::new(InstrIAStore {}),
+                0x50 => Box::new(InstrLAStore {}),
+                0x51 => Box::new(InstrFAStore {}),
+                0x52 => Box::new(InstrDAStore {}),
                 0x53 => Box::new(InstrAAStore {}),
+//                0x54 => bastore
+//                0x55 => castore
+//                0x56 => sastore
+                0x57 => Box::new(InstrPop {}),
+                0x58 => Box::new(InstrPop2 {}),
                 0x59 => Box::new(InstrDup {}),
+//                0x5a => dup_x1
+//                0x5b => dup_x2
+//                0x5c => dup2
+//                0x5d => dup2_x1
+//                0x5e => dup2_x2
+//                0x5f => swap
                 0x60 => Box::new(InstrIAdd {}),
                 0x61 => Box::new(InstrLAdd {}),
                 0x62 => Box::new(InstrFAdd {}),
@@ -1466,6 +1690,12 @@ impl ByteCode {
                 0x75 => Box::new(InstrLNeg {}),
                 0x76 => Box::new(InstrFNeg {}),
                 0x77 => Box::new(InstrDNeg {}),
+//                0x78 => ishl
+//                0x79 => lshl
+//                0x7a => ishr
+//                0x7b => ishl
+//                0x7c => iushr
+//                0x7d => lushr
                 0x7e => Box::new(InstrIAnd {}),
                 0x7f => Box::new(InstrLAnd {}),
                 0x80 => Box::new(InstrIOr {}),
@@ -1485,8 +1715,14 @@ impl ByteCode {
                 0x8e => Box::new(InstrD2I {}),
                 0x8f => Box::new(InstrD2L {}),
                 0x90 => Box::new(InstrD2F {}),
+//                0x91 => i2b
+//                0x92 => i2c
+//                0x93 => i2s
+                0x94 => Box::new(InstrLCmp {}),
                 0x95 => Box::new(InstrFCmpl {}),
                 0x96 => Box::new(InstrFCmpg {}),
+                0x97 => Box::new(InstrDCmpl {}),
+                0x98 => Box::new(InstrDCmpg {}),
                 0x99 => Box::new(InstrIfeq { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0x9a => Box::new(InstrIfne { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0x9b => Box::new(InstrIflt { branch: (data_offset as i16 + data.get_i16()) as usize }),
@@ -1499,8 +1735,15 @@ impl ByteCode {
                 0xa2 => Box::new(InstrIfICmpGe { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0xa3 => Box::new(InstrIfICmpGt { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0xa4 => Box::new(InstrIfICmpLe { branch: (data_offset as i16 + data.get_i16()) as usize }),
+//                0xa5 => if_acmpeq
+//                0xa6 => if_acmpne
                 0xa7 => Box::new(InstrGoto { branch: (data_offset as i16 + data.get_i16()) as usize }),
+//                0xaa => tableswitch
+//                0xab => lookupswitch
                 0xac => Box::new(InstrIReturn {}),
+                0xad => Box::new(InstrLReturn {}),
+                0xae => Box::new(InstrFReturn {}),
+                0xaf => Box::new(InstrDReturn {}),
                 0xb0 => Box::new(InstrAReturn {}),
                 0xb1 => Box::new(InstrReturn {}),
                 0xb2 => match constants_field.get(&data.get_u16size()) {
@@ -1511,6 +1754,9 @@ impl ByteCode {
                     }),
                     _ => panic!("Unknown field")
                 },
+//                0xb3 => putstatic
+//                0xb4 => getfield
+//                0xb5 => putfield
                 0xb6 => match constants_method.get(&data.get_u16size()) {
                     Some(method) => Box::new(InstrInvokeVirtual {
                         class_name: method.class_name.clone(),
@@ -1557,12 +1803,25 @@ impl ByteCode {
                         _ => panic!("Unknown name/type {}", type_name)
                     }
                 },
+//                0xbb => new
+//                0xbc => newarray
                 0xbd => match constants_class.get(&data.get_u16size()) {
                     Some(class) => Box::new(InstrANewArray {
                         class_name: class.name.clone()
                     }),
                     _ => panic!("Unknown class")
                 },
+//                0xbe => arraylength
+//                0xbf => athrow
+//                0xc0 => checkcast
+//                0xc1 => instanceof
+//                0xc2 => monitorenter
+//                0xc3 => monitorexit
+//                0xc4 => wide
+//                0xc5 => multianewarray
+//                0xc6 => ifnull
+//                0xc7 => ifnonnull
+//                0xc8 => goto_w
                 _ => panic!("Unknown opcode {:#02x}", opcode)
             };
 

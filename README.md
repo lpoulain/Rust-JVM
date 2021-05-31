@@ -1,5 +1,5 @@
-# JVM
-A far-from-complete Java Virtual Machine made in Rust
+# Rust JVM
+A far-from-complete Java Virtual Machine written in Rust
 
 ## What is supported
 
