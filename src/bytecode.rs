@@ -609,6 +609,39 @@ impl ByteCodeInstruction for InstrIRem {
     fn print(&self) { println!("      irem"); }
 }
 
+pub struct InstrLRem {}
+impl ByteCodeInstruction for InstrLRem {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_long();
+        let nb2 = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::LONG(nb2 % nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lrem"); }
+}
+
+pub struct InstrFRem {}
+impl ByteCodeInstruction for InstrFRem {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_float();
+        let nb2 = jvm.pop_float();
+        jvm.push(Rc::new(JavaObject::FLOAT(nb2 % nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      frem"); }
+}
+
+pub struct InstrDRem {}
+impl ByteCodeInstruction for InstrDRem {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_double();
+        let nb2 = jvm.pop_double();
+        jvm.push(Rc::new(JavaObject::DOUBLE(nb2 % nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      drem"); }
+}
+
 pub struct InstrINeg {}
 impl ByteCodeInstruction for InstrINeg {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
@@ -619,7 +652,103 @@ impl ByteCodeInstruction for InstrINeg {
     fn print(&self) { println!("      ineg"); }
 }
 
+pub struct InstrLNeg {}
+impl ByteCodeInstruction for InstrLNeg {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::LONG(-nb)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lneg"); }
+}
+
+pub struct InstrFNeg {}
+impl ByteCodeInstruction for InstrFNeg {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_float();
+        jvm.push(Rc::new(JavaObject::FLOAT(-nb)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      fneg"); }
+}
+
+pub struct InstrDNeg {}
+impl ByteCodeInstruction for InstrDNeg {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb = jvm.pop_double();
+        jvm.push(Rc::new(JavaObject::DOUBLE(-nb)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dneg"); }
+}
+
+pub struct InstrIAnd {}
+impl ByteCodeInstruction for InstrIAnd {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_int();
+        let nb2 = jvm.pop_int();
+        jvm.push(Rc::new(JavaObject::INTEGER(nb2 & nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      iand"); }
+}
+
+pub struct InstrLAnd {}
+impl ByteCodeInstruction for InstrLAnd {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_long();
+        let nb2 = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::LONG(nb2 & nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      land"); }
+}
+
 ///////////// 0x8
+
+pub struct InstrIOr {}
+impl ByteCodeInstruction for InstrIOr {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_int();
+        let nb2 = jvm.pop_int();
+        jvm.push(Rc::new(JavaObject::INTEGER(nb2 & nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      ior"); }
+}
+
+pub struct InstrLOr {}
+impl ByteCodeInstruction for InstrLOr {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_long();
+        let nb2 = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::LONG(nb2 | nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lor"); }
+}
+
+pub struct InstrIXor {}
+impl ByteCodeInstruction for InstrIXor {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_int();
+        let nb2 = jvm.pop_int();
+        jvm.push(Rc::new(JavaObject::INTEGER(nb2 ^ nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      ixor"); }
+}
+
+pub struct InstrLXor {}
+impl ByteCodeInstruction for InstrLXor {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let nb1 = jvm.pop_long();
+        let nb2 = jvm.pop_long();
+        jvm.push(Rc::new(JavaObject::LONG(nb2 ^ nb1)));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lxor"); }
+}
 
 pub struct InstrIInc { idx: u8, count: i8 }
 impl ByteCodeInstruction for InstrIInc {
@@ -1240,7 +1369,19 @@ impl ByteCode {
                 0x6e => Box::new(InstrFDiv {}),
                 0x6f => Box::new(InstrDDiv {}),
                 0x70 => Box::new(InstrIRem {}),
+                0x71 => Box::new(InstrLRem {}),
+                0x72 => Box::new(InstrFRem {}),
+                0x73 => Box::new(InstrDRem {}),
                 0x74 => Box::new(InstrINeg {}),
+                0x75 => Box::new(InstrLNeg {}),
+                0x76 => Box::new(InstrFNeg {}),
+                0x77 => Box::new(InstrDNeg {}),
+                0x7e => Box::new(InstrIAnd {}),
+                0x7f => Box::new(InstrLAnd {}),
+                0x80 => Box::new(InstrIOr {}),
+                0x81 => Box::new(InstrLOr {}),
+                0x82 => Box::new(InstrIXor {}),
+                0x83 => Box::new(InstrLXor {}),
                 0x84 => Box::new(InstrIInc { idx: data.get_u8(), count: data.get_i8() }),
                 0x86 => Box::new(InstrI2F {}),
                 0x8d => Box::new(InstrF2D {}),
