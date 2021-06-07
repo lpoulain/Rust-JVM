@@ -3,7 +3,7 @@ A far-from-complete Java Virtual Machine written in Rust
 
 ## What is supported
 
-At this point it is a very primitive JVM. The `Hello.java`, `Arithm.java`, `Streams.java` and `Mandelbrot.java`  show what is currently being supported.
+At this point it is a very primitive JVM. The files in the `java` folder (`Hello.java`, `Arithm.java`, `Streams.java`, `Person.java` and `Mandelbrot.java`) show what is currently being supported.
 
 See also the [Bytecode overview](bytecode.md) and the [Java Streams overview](streams.md) to have a glimpse of how Java/Scala/Kotlin code are converted into bytecode instructions.
 
@@ -27,9 +27,12 @@ Convert 43 into 21
 Executing method main
 Execute 0       getstatic java/lang/System out Ljava/io/PrintStream;
 Execute 1       ldc "Hello, World!"
-Execute 2       invokevirtual java/io/PrintStream println (Ljava/lang/String;)V
+Execute 2       invokevirtual java/io/PrintStream.println(Ljava/lang/String;)V
 Hello, World!
 Execute 3       return
+
+> ./target/debug/jvm Person
+John Doe
 
 > ./target/debug/jvm Streams Alice Bob Charlie Anna Delta
 alice
