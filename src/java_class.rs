@@ -4,12 +4,36 @@ use std::io::Read;
 use std::fs::File;
 use std::collections::HashMap;
 use std::path::Path;
+use std::rc::Rc;
 
 use crate::JVM;
 use crate::bytecode::ByteCode;
 use crate::bytecode::InstrNextAction;
 use crate::jvm::JavaObject;
 use crate::jvm::Classes;
+use std::cell::RefCell;
+
+pub fn get_nb_arguments(type_desc: &String) -> usize {
+    let start_bytes = type_desc.find("(").unwrap_or(0);
+    let end_bytes = type_desc.find(")").unwrap_or(type_desc.len());
+    let arguments = &type_desc[start_bytes+1..end_bytes];
+
+    let mut nb_arguments = 0;
+    let mut idx: usize = 0;
+    let size: usize = arguments.len();
+    while idx < size {
+        match arguments.chars().nth(idx) {
+            Some('B') | Some('C')| Some('D')| Some('F')| Some('I')| Some('J')| Some('S')| Some('Z') => { nb_arguments += 1; idx += 1; },
+            Some('L') => {
+                idx += arguments[idx..].find(";").unwrap() + 1;
+                nb_arguments += 1;
+            }
+            Some(_) => { idx += 1; }
+            None => { break; }
+        }
+    };
+    return nb_arguments;
+}
 
 pub struct Blob {
     offset: usize,
@@ -622,11 +646,20 @@ impl AttributeBootstrapMethod {
 ///////////////////////////////////////////
 
 pub trait JavaClass {
+    fn new(&self) -> JavaObject {
+        JavaObject::INSTANCE(self.get_name(), RefCell::new(HashMap::new()))
+    }
     fn get_name(&self) -> String;
     fn print(&self);
-    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String);
-    fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String);
-    fn get_static_object(&self, field_name: &String) -> JavaObject;
+    fn execute_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String, _nb_args: usize) {
+        panic!("Class {} does not support method {}", self.get_name(), method_name);
+    }
+    fn execute_static_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String, _nb_args: usize) {
+        panic!("Class {} does not support static method {}", self.get_name(), method_name);
+    }
+    fn get_static_object(&self, field_name: &String) -> JavaObject {
+        panic!("Class {} does not have static field {}", self.get_name(), field_name);
+    }
     fn get_method_handles(&self) -> &HashMap<usize, ConstantMethodHandle> {
         panic!("Class {} has no get_method_handles() implemented", self.get_name());
     }
@@ -648,7 +681,7 @@ pub struct BytecodeClass {
 }
 
 impl BytecodeClass {
-    pub fn new (name: &String, debug: u8) -> BytecodeClass {
+    pub fn parse (name: &String, debug: u8) -> BytecodeClass {
         let mut data = Blob::new(&(name.to_owned() + &String::from(".class")));
         if debug >= 3 { data.print(); }
         data.skip(8);
@@ -815,7 +848,31 @@ impl BytecodeClass {
         let _interfaces_count = data.get_u16size();
 
         // fields_count
-        let _fields_count = data.get_u16size();
+        let fields_count = data.get_u16size();
+        if debug >= 2 { println!("Fields: {}", fields_count); }
+        for _ in 0..fields_count {
+            let _field_access_flag = data.get_u16size();
+            let field_idx = data.get_u16size();
+            let field_name = match constants_string.get(&field_idx) {
+                Some(string) => string.value.clone(),
+                _ => panic!("Unknown string ID {}", field_idx)
+            };
+            let _field_descriptor_idx = data.get_u16size();
+            if debug >= 2 { println!("Field [{}]", field_name); }
+
+            let attributes_count = data.get_u16size();
+            for _ in 0..attributes_count {
+                let attribute_name_idx = data.get_u16size();
+                let attribute_size = data.get_u32size();
+
+                let attribute_name = match constants_string.get(&attribute_name_idx) {
+                    Some(string) => string.value.clone(),
+                    _ => panic!("Unknown string ID {}", attribute_name_idx)
+                };
+                if debug >= 2 { println!("    Field attribute {} (size: {})", attribute_name, attribute_size); }
+                data.skip(attribute_size);
+            }
+        }
 
         // methods_count
         let methods_count = data.get_u16size();
@@ -847,7 +904,7 @@ impl BytecodeClass {
                     Some(string) => string.value.clone(),
                     _ => panic!("Unknown string ID {}", attribute_name_idx)
                 };
-                if debug >= 2 { println!("    Attribute {} (size: {})", attribute_name, attribute_size); }
+                if debug >= 2 { println!("    Method attribute {} (size: {})", attribute_name, attribute_size); }
 
                 if attribute_name.eq("Code") {
                     data.skip(4);
@@ -886,7 +943,7 @@ impl BytecodeClass {
                 _ => panic!("Cannot find Constant String at index {}", attribute_idx)
             };
             if debug >= 2 {
-                println!("Attribute name [{}], size [0x{:x}]", attribute_name, attribute_size);
+                println!("Class attribute name [{}], size [0x{:x}]", attribute_name, attribute_size);
             }
             if attribute_name.eq("BootstrapMethods") {
                 let bootstrap_methods_count = data.get_u16size();
@@ -906,19 +963,53 @@ impl BytecodeClass {
 
         BytecodeClass {
             name: constant_class.name.clone(),
-            constants_class: constants_class,
-            constants_string: constants_string,
-            constants_string_ref: constants_string_ref,
-            constants_method: constants_method,
-            constants_field: constants_field,
-            constants_name_type: constants_name_type,
-            constants_method_handle: constants_method_handle,
-            constants_dynamic: constants_dynamic,
-            bootstrap_methods: bootstrap_methods,
-            methods: methods,
-            debug: debug
+            constants_class,
+            constants_string,
+            constants_string_ref,
+            constants_method,
+            constants_field,
+            constants_name_type,
+            constants_method_handle,
+            constants_dynamic,
+            bootstrap_methods,
+            methods,
+            debug
         }
     }
+
+    fn execute_bytecode(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {
+        let bytecode = match self.methods.get(method_name) {
+            Some(method) => method,
+            _ => panic!("Unknown method {} in class {}", method_name, self.name)
+        };
+
+        let mut instr_idx: usize = 0;
+
+        loop {
+            match bytecode.instructions.get(instr_idx) {
+                Some(instr) => {
+                    if self.debug >= 1 {
+                        print!("Execute {} ", instr_idx);
+                        instr.print();
+                    }
+                    match instr.execute(self, jvm, classes) {
+                        InstrNextAction::NEXT => {
+                            instr_idx += 1;
+                        },
+                        InstrNextAction::GOTO(idx) => {
+                            instr_idx = idx;
+                        }
+                        InstrNextAction::RETURN => {
+                            if self.debug >= 1 { jvm.print_stack(); }
+                            return;
+                        }
+                    }
+                },
+                _ => panic!("No instruction {}", instr_idx)
+            }
+        }
+    }
+
 }
 
 impl JavaClass for BytecodeClass {
@@ -960,43 +1051,45 @@ impl JavaClass for BytecodeClass {
         }
     }
 
-    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {
-//        if self.debug >= 1 { println!("Executing method {}", method_name); }
-        self.execute_static_method(jvm, classes, method_name);
+    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, nb_args: usize) {
+        if self.debug >= 1 { println!("Execute method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
+
+        let var = Rc::new(JavaObject::NULL());
+        let mut variables: [Rc<JavaObject>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+            var.clone(), var.clone(), var.clone(), var.clone(),
+            var.clone(), var.clone(), var.clone(), var.clone(),
+            var.clone(), var.clone(), var.clone(), var.clone()];
+
+        for i in 0..nb_args + 1 {
+            variables[nb_args - i] = jvm.pop();
+        }
+
+        let mut jvm_new = JVM::new(variables, jvm.debug);
+
+        self.execute_bytecode(&mut jvm_new, classes, method_name);
+        if jvm_new.return_arg {
+            jvm.push(jvm_new.pop());
+        }
     }
 
-    fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {
-        if self.debug >= 1 { println!("Executing method {}", method_name); }
+    fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, nb_args: usize) {
+        if self.debug >= 1 { println!("Execute static method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
 
-        let bytecode = match self.methods.get(method_name) {
-            Some(method) => method,
-            _ => panic!("Unknown method {} in class {}", method_name, self.name)
-        };
+        let var = Rc::new(JavaObject::NULL());
+        let mut variables: [Rc<JavaObject>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+            var.clone(), var.clone(), var.clone(), var.clone(),
+            var.clone(), var.clone(), var.clone(), var.clone(),
+            var.clone(), var.clone(), var.clone(), var.clone()];
 
-        let mut instr_idx: usize = 0;
+        for i in 0..nb_args {
+            variables[nb_args - 1 - i] = jvm.pop();
+        }
 
-        loop {
-            match bytecode.instructions.get(instr_idx) {
-                Some(instr) => {
-                    if self.debug >= 1 {
-                        print!("Execute {} ", instr_idx);
-                        instr.print();
-                    }
-                    match instr.execute(self, jvm, classes) {
-                        InstrNextAction::NEXT => {
-                            instr_idx += 1;
-                        },
-                        InstrNextAction::GOTO(idx) => {
-                            instr_idx = idx;
-                        }
-                        InstrNextAction::RETURN => {
-                            if self.debug >= 1 { jvm.print_stack(); }
-                            return;
-                        }
-                    }        
-                },
-                _ => panic!("No instruction {}", instr_idx)
-            }
+        let mut jvm_new = JVM::new(variables, jvm.debug);
+
+        self.execute_bytecode(&mut jvm_new, classes, method_name);
+        if jvm_new.return_arg {
+            jvm.push(jvm_new.pop());
         }
     }
 

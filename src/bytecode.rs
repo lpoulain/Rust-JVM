@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::java_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble};
+use crate::java_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble, get_nb_arguments};
 use crate::java_class::ConstantString;
 use crate::java_class::ConstantStringRef;
 use crate::java_class::ConstantClass;
@@ -124,7 +124,7 @@ impl ByteCodeInstruction for InstrBiPush {
 pub struct InstrILoad { variable: u8 }
 impl ByteCodeInstruction for InstrILoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iload {}", self.variable); }
@@ -133,7 +133,7 @@ impl ByteCodeInstruction for InstrILoad {
 pub struct InstrLLoad { variable: u8 }
 impl ByteCodeInstruction for InstrLLoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lload {}", self.variable); }
@@ -142,7 +142,7 @@ impl ByteCodeInstruction for InstrLLoad {
 pub struct InstrFLoad { variable: u8 }
 impl ByteCodeInstruction for InstrFLoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fload {}", self.variable); }
@@ -151,7 +151,7 @@ impl ByteCodeInstruction for InstrFLoad {
 pub struct InstrDLoad { variable: u8 }
 impl ByteCodeInstruction for InstrDLoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dload {}", self.variable); }
@@ -160,7 +160,7 @@ impl ByteCodeInstruction for InstrDLoad {
 pub struct InstrALoad { variable: u8 }
 impl ByteCodeInstruction for InstrALoad {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aload {}", self.variable); }
@@ -187,7 +187,7 @@ impl ByteCodeInstruction for InstrLdcF {
 pub struct InstrILoadN { variable: u8 }
 impl ByteCodeInstruction for InstrILoadN {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iload_{}", self.variable); }
@@ -196,7 +196,7 @@ impl ByteCodeInstruction for InstrILoadN {
 pub struct InstrLLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrLLoadN {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lload_{}", self.variable); }
@@ -207,7 +207,7 @@ impl ByteCodeInstruction for InstrLLoadN {
 pub struct InstrFLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrFLoadN {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fload_{}", self.variable); }
@@ -216,7 +216,7 @@ impl ByteCodeInstruction for InstrFLoadN {
 pub struct InstrDLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrDLoadN {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dload_{}", self.variable); }
@@ -225,7 +225,7 @@ impl ByteCodeInstruction for InstrDLoadN {
 pub struct InstrALoadN { variable: u8 }
 impl ByteCodeInstruction for InstrALoadN {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.push(jvm.variables[self.variable as usize].clone());
+        jvm.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aload{}", self.variable); }
@@ -255,7 +255,7 @@ impl ByteCodeInstruction for InstrAALoad {
 pub struct InstrIStore { variable: u8 }
 impl ByteCodeInstruction for InstrIStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.variable as usize] = jvm.pop().clone();
+        jvm.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore {}", self.variable); }
@@ -264,7 +264,7 @@ impl ByteCodeInstruction for InstrIStore {
 pub struct InstrLStore { variable: u8 }
 impl ByteCodeInstruction for InstrLStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.variable as usize] = jvm.pop().clone();
+        jvm.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lstore {}", self.variable); }
@@ -273,7 +273,7 @@ impl ByteCodeInstruction for InstrLStore {
 pub struct InstrFStore { variable: u8 }
 impl ByteCodeInstruction for InstrFStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.variable as usize] = jvm.pop().clone();
+        jvm.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fstore {}", self.variable); }
@@ -282,7 +282,7 @@ impl ByteCodeInstruction for InstrFStore {
 pub struct InstrDStore { variable: u8 }
 impl ByteCodeInstruction for InstrDStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.variable as usize] = jvm.pop().clone();
+        jvm.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dstore {}", self.variable); }
@@ -291,7 +291,7 @@ impl ByteCodeInstruction for InstrDStore {
 pub struct InstrAStore { variable: u8 }
 impl ByteCodeInstruction for InstrAStore {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[self.variable as usize] = jvm.pop().clone();
+        jvm.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      astore {}", self.variable); }
@@ -300,7 +300,7 @@ impl ByteCodeInstruction for InstrAStore {
 pub struct InstrIStore0 {}
 impl ByteCodeInstruction for InstrIStore0 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[0] = jvm.pop().clone();
+        jvm.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore_0"); }
@@ -309,7 +309,7 @@ impl ByteCodeInstruction for InstrIStore0 {
 pub struct InstrIStore1 {}
 impl ByteCodeInstruction for InstrIStore1 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[1] = jvm.pop().clone();
+        jvm.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore_1"); }
@@ -318,7 +318,7 @@ impl ByteCodeInstruction for InstrIStore1 {
 pub struct InstrIStore2 {}
 impl ByteCodeInstruction for InstrIStore2 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[2] = jvm.pop().clone();
+        jvm.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore_2"); }
@@ -327,7 +327,7 @@ impl ByteCodeInstruction for InstrIStore2 {
 pub struct InstrIStore3 {}
 impl ByteCodeInstruction for InstrIStore3 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[3] = jvm.pop().clone();
+        jvm.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore_3"); }
@@ -338,7 +338,7 @@ impl ByteCodeInstruction for InstrIStore3 {
 pub struct InstrFStore0 {}
 impl ByteCodeInstruction for InstrFStore0 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[0] = jvm.pop().clone();
+        jvm.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fstore_0"); }
@@ -347,7 +347,7 @@ impl ByteCodeInstruction for InstrFStore0 {
 pub struct InstrFStore1 {}
 impl ByteCodeInstruction for InstrFStore1 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[1] = jvm.pop().clone();
+        jvm.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fstore_1"); }
@@ -356,7 +356,7 @@ impl ByteCodeInstruction for InstrFStore1 {
 pub struct InstrFStore2 {}
 impl ByteCodeInstruction for InstrFStore2 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[2] = jvm.pop().clone();
+        jvm.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fstore_2"); }
@@ -365,7 +365,7 @@ impl ByteCodeInstruction for InstrFStore2 {
 pub struct InstrFStore3 {}
 impl ByteCodeInstruction for InstrFStore3 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[3] = jvm.pop().clone();
+        jvm.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fstore_3"); }
@@ -374,7 +374,7 @@ impl ByteCodeInstruction for InstrFStore3 {
 pub struct InstrAStore0 {}
 impl ByteCodeInstruction for InstrAStore0 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[0] = jvm.pop().clone();
+        jvm.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      astore_0"); }
@@ -383,7 +383,7 @@ impl ByteCodeInstruction for InstrAStore0 {
 pub struct InstrAStore1 {}
 impl ByteCodeInstruction for InstrAStore1 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[1] = jvm.pop().clone();
+        jvm.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      astore_1"); }
@@ -392,7 +392,7 @@ impl ByteCodeInstruction for InstrAStore1 {
 pub struct InstrAStore2 {}
 impl ByteCodeInstruction for InstrAStore2 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[2] = jvm.pop().clone();
+        jvm.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      astore_2"); }
@@ -401,7 +401,7 @@ impl ByteCodeInstruction for InstrAStore2 {
 pub struct InstrAStore3 {}
 impl ByteCodeInstruction for InstrAStore3 {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        jvm.variables[3] = jvm.pop().clone();
+        jvm.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      astore_3"); }
@@ -859,14 +859,15 @@ impl ByteCodeInstruction for InstrLXor {
 pub struct InstrIInc { idx: u8, count: i8 }
 impl ByteCodeInstruction for InstrIInc {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
-        let variable = jvm.variables[self.idx as usize].clone();
+        let variable = jvm.get_variable(self.idx as usize);
 
         let nb = match &*variable {
             JavaObject::INTEGER(int) => *int,
             _ => panic!("iinc expects variable {} to contain an integer", self.idx)
         };
 
-        jvm.variables[self.idx as usize] = Rc::new(JavaObject::INTEGER(nb + self.count as i32));
+        jvm.set_variable(self.idx as usize, &Rc::new(JavaObject::INTEGER(nb + self.count as i32)));
+
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iinc {} {}", self.idx, self.count); }
@@ -1364,7 +1365,8 @@ impl ByteCodeInstruction for InstrGoto {
 
 pub struct InstrIReturn {}
 impl ByteCodeInstruction for InstrIReturn {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      ireturn"); }
@@ -1372,7 +1374,8 @@ impl ByteCodeInstruction for InstrIReturn {
 
 pub struct InstrLReturn {}
 impl ByteCodeInstruction for InstrLReturn {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      lreturn"); }
@@ -1380,7 +1383,8 @@ impl ByteCodeInstruction for InstrLReturn {
 
 pub struct InstrFReturn {}
 impl ByteCodeInstruction for InstrFReturn {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      freturn"); }
@@ -1388,7 +1392,8 @@ impl ByteCodeInstruction for InstrFReturn {
 
 pub struct InstrDReturn {}
 impl ByteCodeInstruction for InstrDReturn {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      dreturn"); }
@@ -1398,7 +1403,8 @@ impl ByteCodeInstruction for InstrDReturn {
 
 pub struct InstrAReturn {}
 impl ByteCodeInstruction for InstrAReturn {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        jvm.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      areturn"); }
@@ -1422,47 +1428,94 @@ impl ByteCodeInstruction for InstrGetStatic {
     fn print(&self) { println!("      getstatic {}.{} -> {}", self.class_name, self.field_name, self.type_desc); }
 }
 
-pub struct InstrInvokeVirtual { class_name: String, method_name: String, type_desc: String }
+pub struct InstrGetField { class_name: String, field_name: String }
+impl ByteCodeInstruction for InstrGetField {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let instance = jvm.pop();
+        let object = match &*instance {
+            JavaObject::INSTANCE(class, fields) => {
+                if !self.class_name.eq(class) {
+                    jvm.print_stack();
+                    jvm.print_variables();
+                    panic!("Mismatched class name. Expected {}, got {}", self.class_name, class);
+                }
+                fields.borrow()
+            },
+            _ => panic!("No instance")
+        };
+        match object.get(&self.field_name) {
+            Some(field) => jvm.push(field.clone()),
+            _ => jvm.push(Rc::new(JavaObject::NULL()))
+        };
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      getfield {}.{}", self.class_name, self.field_name); }
+}
+
+pub struct InstrPutField { class_name: String, field_name: String }
+impl ByteCodeInstruction for InstrPutField {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let value = jvm.pop();
+        let instance = jvm.pop();
+        let mut object = match &*instance {
+            JavaObject::INSTANCE(class, fields) => {
+                if !self.class_name.eq(class) {
+                    panic!("Mismatched class name. Expected {}, got {}", self.class_name, class);
+                }
+                fields.borrow_mut()
+            },
+            _ => panic!("No instance")
+        };
+        object.insert(self.field_name.clone(), value.clone());
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      putfield {}.{}", self.class_name, self.field_name); }
+}
+
+pub struct InstrInvokeVirtual { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeVirtual {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, classes: &Classes) -> InstrNextAction {
         let class = classes.get_class(&self.class_name);
-        class.execute_method(jvm, classes, &self.method_name);
+        class.execute_method(jvm, classes, &self.method_name, self.nb_args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokevirtual {}.{}() -> {}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokevirtual {}.{}{}", self.class_name, self.method_name, self.type_desc); }
 }
 
-pub struct InstrInvokeSpecial { class_name: String, method_name: String, type_desc: String }
+pub struct InstrInvokeSpecial { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeSpecial {
-    fn execute(&self, _class: &BytecodeClass, _jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, classes: &Classes) -> InstrNextAction {
+        let class = classes.get_class(&self.class_name);
+        class.execute_method(jvm, classes, &self.method_name, self.nb_args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokespecial {}.{}() -> {}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokespecial {}.{}{}", self.class_name, self.method_name, self.type_desc); }
 }
 
-pub struct InstrInvokeStatic { class_name: String, method_name: String, type_desc: String }
+pub struct InstrInvokeStatic { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeStatic {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, classes: &Classes) -> InstrNextAction {
         let class = classes.get_class(&self.class_name);
-        class.execute_static_method(jvm, classes, &self.method_name);
+        class.execute_static_method(jvm, classes, &self.method_name, self.nb_args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokestatic {}.{}() -> {}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokestatic {}.{}{}", self.class_name, self.method_name, self.type_desc); }
 }
 
-pub struct InstrInvokeInterface { class_name: String, method_name: String, type_desc: String, count: usize }
+pub struct InstrInvokeInterface { class_name: String, method_name: String, type_desc: String, count: usize, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeInterface {
     fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, classes: &Classes) -> InstrNextAction {
         let class = classes.get_class(&self.class_name);
-        class.execute_method(jvm, classes, &self.method_name);
+        class.execute_method(jvm, classes, &self.method_name, self.nb_args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokeinterface {}.{}() -> {} {}", self.class_name, self.method_name, self.type_desc, self.count); }
+    fn print(&self) { println!("      invokeinterface {}.{}{} {}", self.class_name, self.method_name, self.type_desc, self.count); }
 }
 
 pub struct InstrInvokeDynamic {
     method_name: String,
     method_type: String,
+    method_nb_args: usize,
     bootstrap_method_idx: usize
 }
 impl ByteCodeInstruction for InstrInvokeDynamic {
@@ -1470,22 +1523,37 @@ impl ByteCodeInstruction for InstrInvokeDynamic {
 
         let bootstrap = match class.bootstrap_methods.get(self.bootstrap_method_idx) {
             Some(bootstrap) => bootstrap,
-            _ => panic!("Unknown bootstrap mehtod {}", self.bootstrap_method_idx)
+            _ => panic!("Unknown bootstrap method {}", self.bootstrap_method_idx)
         };
 
         jvm.push(Rc::new(JavaObject::STRING(class.name.clone())));
         jvm.push(Rc::new(JavaObject::STRING(self.method_name.clone())));
         jvm.push(Rc::new(JavaObject::STRING(self.method_type.clone())));
+
+        let mut type_desc = String::from("(III");
+
         for arg in bootstrap.arguments.iter() {
             jvm.push(Rc::new(JavaObject::INTEGER(*arg as i32)));
+            type_desc.push_str("I");
         }
+        type_desc.push_str(")V");
 
         let class = classes.get_class(&bootstrap.class_name);
-        class.execute_static_method(jvm, classes, &bootstrap.method_name);
+        class.execute_static_method(jvm, classes, &bootstrap.method_name, self.method_nb_args);
 
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokedynamic {} {} {}", self.bootstrap_method_idx, self.method_name, self.method_type); }
+    fn print(&self) { println!("      invokedynamic {} {}{}", self.bootstrap_method_idx, self.method_name, self.method_type); }
+}
+
+pub struct InstrNew { class_name: String }
+impl ByteCodeInstruction for InstrNew {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, classes: &Classes) -> InstrNextAction {
+        let class = classes.get_class(&self.class_name);
+        jvm.push(Rc::new(class.new()));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      new {}", self.class_name); }
 }
 
 pub struct InstrANewArray { class_name: String }
@@ -1755,13 +1823,26 @@ impl ByteCode {
                     _ => panic!("Unknown field")
                 },
 //                0xb3 => putstatic
-//                0xb4 => getfield
-//                0xb5 => putfield
+                0xb4 => match constants_field.get(&data.get_u16size()) {
+                    Some(method) => Box::new(InstrGetField {
+                        class_name: method.class_name.clone(),
+                        field_name: method.field_name.clone()
+                    }),
+                    _ => panic!("Unknown field")
+                },
+                0xb5 => match constants_field.get(&data.get_u16size()) {
+                    Some(method) => Box::new(InstrPutField {
+                        class_name: method.class_name.clone(),
+                        field_name: method.field_name.clone()
+                    }),
+                    _ => panic!("Unknown field")
+                },
                 0xb6 => match constants_method.get(&data.get_u16size()) {
                     Some(method) => Box::new(InstrInvokeVirtual {
                         class_name: method.class_name.clone(),
                         method_name: method.method_name.clone(),
-                        type_desc: method.type_name.clone()
+                        type_desc: method.type_name.clone(),
+                        nb_args: get_nb_arguments(&method.type_name)
                     }),
                     _ => panic!("Unknown method")
                 },
@@ -1769,7 +1850,8 @@ impl ByteCode {
                     Some(method) => Box::new(InstrInvokeSpecial {
                         class_name: method.class_name.clone(),
                         method_name: method.method_name.clone(),
-                        type_desc: method.type_name.clone()
+                        type_desc: method.type_name.clone(),
+                        nb_args: get_nb_arguments(&method.type_name)
                     }),
                     _ => panic!("Unknown method")
                 },
@@ -1777,7 +1859,8 @@ impl ByteCode {
                     Some(method) => Box::new(InstrInvokeStatic {
                         class_name: method.class_name.clone(),
                         method_name: method.method_name.clone(),
-                        type_desc: method.type_name.clone()
+                        type_desc: method.type_name.clone(),
+                        nb_args: get_nb_arguments(&method.type_name)
                     }),
                     _ => panic!("Unknown method")
                 },
@@ -1786,7 +1869,8 @@ impl ByteCode {
                         count: data.get_u16size(),
                         class_name: method.class_name.clone(),
                         method_name: method.method_name.clone(),
-                        type_desc: method.type_name.clone()
+                        type_desc: method.type_name.clone(),
+                        nb_args: get_nb_arguments(&method.type_name)
                     }),
                     _ => panic!("Unknown interface")
                 },
@@ -1798,12 +1882,18 @@ impl ByteCode {
                         Some(dynamic) => Box::new(InstrInvokeDynamic {
                             bootstrap_method_idx: dynamic.idx_bootstrap_method,
                             method_name: dynamic.method_name.clone(),
-                            method_type: dynamic.type_name.clone()
+                            method_type: dynamic.type_name.clone(),
+                            method_nb_args: get_nb_arguments(&dynamic.type_name)
                         }),
                         _ => panic!("Unknown name/type {}", type_name)
                     }
                 },
-//                0xbb => new
+                0xbb => match constants_class.get(&data.get_u16size()) {
+                    Some(class) => Box::new(InstrNew {
+                        class_name: class.name.clone()
+                    }),
+                    _ => panic!("Unknown class")
+                },
 //                0xbc => newarray
                 0xbd => match constants_class.get(&data.get_u16size()) {
                     Some(class) => Box::new(InstrANewArray {
@@ -1836,7 +1926,7 @@ impl ByteCode {
         }
 
         ByteCode {
-            instructions: instructions
+            instructions
         }
     }
 }

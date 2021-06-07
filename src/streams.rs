@@ -67,7 +67,7 @@ impl JavaClass for NativeStreamClass {
         println!("Native Stream class");
     }
 
-    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {
+    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, _nb_args: usize) {
         let arg = jvm.pop();
         let this = jvm.pop();
 
@@ -108,8 +108,8 @@ impl JavaClass for NativeStreamClass {
                                 loop {
                                     match current_function.borrow_mut().next_object(0, &*stream.borrow(), jvm, &classes) {
                                         Some(object) => {
-                                            jvm.variables[0] = object;
-                                            class.execute_method(jvm, classes, &consumer.borrow().method_name);
+                                            jvm.push(object.clone());
+                                            class.execute_static_method(jvm, classes, &consumer.borrow().method_name, 1);
                                         },
                                         None => break
                                     }
@@ -122,18 +122,9 @@ impl JavaClass for NativeStreamClass {
                 };
 
                 jvm.push(this);
-                return;
             },
             _ => panic!("Native class {} does not have method [{}]", self.get_name(), method_name)
         };
-    }
-
-    fn execute_static_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
-    }
-
-    fn get_static_object(&self, _field_name: &String) -> JavaObject {
-        panic!("Not implemented yet");
     }
 }
 
@@ -150,11 +141,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
         println!("Native Stream class");
     }
 
-    fn execute_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have method [{}]", self.get_name(), method_name);
-    }
-
-    fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {
+    fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, _nb_args: usize) {
         if method_name.eq("metafactory") {
             let _arg3 = jvm.pop();
             let arg2 = jvm.pop();
@@ -178,6 +165,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
 
             let class_name = bootstrap_method.class_name.clone();
             let method_name = bootstrap_method.method_name.clone();
+            let type_desc = bootstrap_method.type_name.clone();
 
             match &*action {
                 JavaObject::STRING(str) => {
@@ -185,32 +173,33 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                         "test" => {
                             let object = NativePredicateInstance {
                                 class_name,
-                                method_name
+                                method_name,
+                                type_desc
                             };
                             jvm.push(Rc::new(JavaObject::InstancePredicate(RefCell::new(object))));
-                            return;
                         },
                         "apply" => {
                             let object = NativeFunctionInstance {
                                 class_name,
-                                method_name
+                                method_name,
+                                type_desc
                             };
                             jvm.push(Rc::new(JavaObject::InstanceFunction(RefCell::new(object))));
-                            return;
                         },
                         "accept" => {
                             let object = NativeConsumerInstance {
                                 class_name,
-                                method_name
+                                method_name,
+                                type_desc
                             };
                             jvm.push(Rc::new(JavaObject::InstanceConsumer(RefCell::new(object))));
-                            return;
                         },
                         _ => panic!("LambdaMetafactory.metafactory(): Unsupported command {}", str)
                     };
                 },
                 _ => panic!("LambdaMetafactory.metafactory(): expecting arg 2 to be a string")
             };
+            return;
         }
         panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
     }
@@ -224,14 +213,16 @@ impl JavaClass for NativeLambdaMetafactoryClass {
 
 pub struct NativePredicateInstance {
     class_name: String,
-    method_name: String
+    method_name: String,
+    type_desc: String
 }
 
 impl Clone for NativePredicateInstance {
     fn clone(&self) -> NativePredicateInstance {
         NativePredicateInstance {
             class_name: self.class_name.clone(),
-            method_name: self.method_name.clone()
+            method_name: self.method_name.clone(),
+            type_desc: self.type_desc.clone()
         }
     }
 }
@@ -249,8 +240,8 @@ impl StreamFunction for NativePredicateInstance {
 
                     match object {
                         Some(obj) => {
-                            jvm.variables[0] = obj.clone();
-                            class.execute_method(jvm, classes, &self.method_name);
+                            jvm.push(obj.clone());
+                            class.execute_static_method(jvm, classes, &self.method_name, 1);
                             let result = jvm.pop();
                             match &*result {
                                 JavaObject::BOOLEAN(is_predicate_valid) => {
@@ -279,30 +270,20 @@ impl JavaClass for NativePredicateClass {
     fn print(&self) {
         println!("Native Predicate class");
     }
-
-    fn execute_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have method [{}]", self.get_name(), method_name);
-    }
-
-    fn execute_static_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
-    }
-
-    fn get_static_object(&self, _field_name: &String) -> JavaObject {
-        panic!("Not implemented yet");
-    }
 }
 
 pub struct NativeFunctionInstance {
     class_name: String,
-    method_name: String
+    method_name: String,
+    type_desc: String
 }
 
 impl Clone for NativeFunctionInstance {
     fn clone(&self) -> NativeFunctionInstance {
         NativeFunctionInstance {
             class_name: self.class_name.clone(),
-            method_name: self.method_name.clone()
+            method_name: self.method_name.clone(),
+            type_desc: self.type_desc.clone()
         }
     }
 }
@@ -317,8 +298,8 @@ impl StreamFunction for NativeFunctionInstance {
 
                 match object {
                     Some(obj) => {
-                        jvm.variables[0] = obj;
-                        class.execute_method(jvm, classes, &self.method_name);
+                        jvm.push(obj);
+                        class.execute_static_method(jvm, classes, &self.method_name, 1);
                         return Some(jvm.pop());
                     },
                     None => return None
@@ -340,30 +321,20 @@ impl JavaClass for NativeFunctionClass {
     fn print(&self) {
         println!("Native Function class");
     }
-
-    fn execute_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have method [{}]", self.get_name(), method_name);
-    }
-
-    fn execute_static_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
-    }
-
-    fn get_static_object(&self, _field_name: &String) -> JavaObject {
-        panic!("Not implemented yet");
-    }
 }
 
 pub struct NativeConsumerInstance {
     class_name: String,
-    method_name: String
+    method_name: String,
+    type_desc: String
 }
 
 impl Clone for NativeConsumerInstance {
     fn clone(&self) -> NativeConsumerInstance {
         NativeConsumerInstance {
             class_name: self.class_name.clone(),
-            method_name: self.method_name.clone()
+            method_name: self.method_name.clone(),
+            type_desc: self.type_desc.clone()
         }
     }
 }
@@ -377,17 +348,5 @@ impl JavaClass for NativeConsumerClass {
 
     fn print(&self) {
         println!("Native Consumer class");
-    }
-
-    fn execute_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have method [{}]", self.get_name(), method_name);
-    }
-
-    fn execute_static_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String) {
-        panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
-    }
-
-    fn get_static_object(&self, _field_name: &String) -> JavaObject {
-        panic!("Not implemented yet");
     }
 }

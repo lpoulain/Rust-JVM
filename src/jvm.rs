@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::JavaClass;
-use crate::native_java_classes::NativeListClass;
+use crate::native_java_classes::NativeArrayListInstance;
 use crate::streams::NativeStreamInstance;
 use crate::streams::NativePredicateInstance;
 use crate::streams::NativeFunctionInstance;
@@ -14,14 +14,15 @@ use crate::streams::NativeConsumerInstance;
 // to be able to push a wide variety of objects in the JVM stack
 pub enum JavaObject {
     STRING(String),
-    INSTANCE(String, HashMap<String, Rc<JavaObject>>),
+    INSTANCE(String, RefCell<HashMap<String, Rc<JavaObject>>>),
     ARRAY(RefCell<Vec<Rc<JavaObject>>>),
     INTEGER(i32),
     FLOAT(f32),
     DOUBLE(f64),
     LONG(i64),
     BOOLEAN(bool),
-    InstanceList(RefCell<NativeListClass>),
+    NULL(),
+    InstanceList(RefCell<NativeArrayListInstance>),
     InstanceStream(RefCell<NativeStreamInstance>),
     InstancePredicate(RefCell<NativePredicateInstance>),
     InstanceFunction(RefCell<NativeFunctionInstance>),
@@ -55,27 +56,23 @@ impl Classes {
 
 pub struct JVM {
     stack: Vec<Rc<JavaObject>>,
-    pub variables: [Rc<JavaObject>; 16],
-    pub debug: u8
+    variables: [Rc<JavaObject>; 16],
+    pub debug: u8,
+    pub return_arg: bool
 }
 
 impl JVM {
-    pub fn new(args: &Vec<&str>, debug: u8) -> JVM {
-        let mut java_args: Vec<Rc<JavaObject>> = Vec::new();
-        for i in 0..args.len() {
-            java_args.push(Rc::new(JavaObject::STRING(String::from(args[i]))));
-            if debug >= 1 { println!("Arg: {}", args[i]); }
-        }
-        let var = Rc::new(JavaObject::INTEGER(0));
-
+    pub fn new(variables: [Rc<JavaObject>; 16], debug: u8) -> JVM {
         JVM {
             stack: Vec::new(),
-            variables: [Rc::new(JavaObject::ARRAY(RefCell::new(java_args))), var.clone(), var.clone(), var.clone(),
-                var.clone(), var.clone(), var.clone(), var.clone(),
-                var.clone(), var.clone(), var.clone(), var.clone(),
-                var.clone(), var.clone(), var.clone(), var.clone()],
-            debug: debug
+            variables,
+            debug,
+            return_arg: false
         }
+    }
+
+    pub fn set_return_arg_flag(&mut self) {
+        self.return_arg = true;
     }
 
     pub fn push(&mut self, object: Rc<JavaObject>) {
@@ -83,10 +80,7 @@ impl JVM {
     }
 
     pub fn pop(&mut self) -> Rc<JavaObject> {
-        return match self.stack.pop() {
-            Some(object) => object,
-            _ => panic!("Stack empty, nothing to pop")
-        };
+        return self.stack.pop().unwrap();
     }
 
     pub fn pop_int(&mut self) -> i32 {
@@ -121,10 +115,34 @@ impl JVM {
         };
     }
 
+    pub fn stack_to_variable(&mut self, idx: usize) {
+        self.variables[idx] = self.stack.pop().unwrap().clone();
+    }
+
+    pub fn variable_to_stack(&mut self, idx: usize) {
+        self.stack.push(self.variables[idx].clone());
+    }
+
+    pub fn set_variable(&mut self, idx: usize, object: &Rc<JavaObject>) {
+        self.variables[idx] = object.clone();
+    }
+
+    pub fn get_variable(&self, idx: usize) -> Rc<JavaObject> {
+        return self.variables[idx].clone();
+    }
+
     pub fn print_stack(&self) {
         for frame in &self.stack {
-            print!("> ");
+            print!("    > ");
             self.print_java_object(&(**frame));
+            println!("");
+        }
+    }
+
+    pub fn print_variables(&self) {
+        for i in 0..8 {
+            print!("    Var {}: ", i);
+            self.print_java_object(&self.variables[i]);
             println!("");
         }
     }
@@ -137,9 +155,11 @@ impl JVM {
             JavaObject::BOOLEAN(b) => print!("{}", b),
             JavaObject::FLOAT(f) => print!("{}", f),
             JavaObject::DOUBLE(d) => print!("{}", d),
+            JavaObject::NULL() => print!("<null>"),
             JavaObject::INSTANCE(cl, keys) => {
-                print!("{} instance (", cl);
-                for (key, value) in keys {
+                print!("<{} instance> (", cl);
+                let fields = keys.borrow();
+                for (key, value) in fields.iter() {
                     print!("{}:", key);
                     self.print_java_object(value);
                     print!("  ");
@@ -154,11 +174,11 @@ impl JVM {
                 }
                 print!("]")
             },
-            JavaObject::InstanceList(_) => print!("List instance"),
-            JavaObject::InstanceStream(_) => print!("Stream instance"),
-            JavaObject::InstanceFunction(_) => print!("Function instance"),
-            JavaObject::InstancePredicate(_) => print!("Predicate instance"),
-            JavaObject::InstanceConsumer(_) => print!("Consumer instance"),
+            JavaObject::InstanceList(_) => print!("<List instance>"),
+            JavaObject::InstanceStream(_) => print!("<Stream instance>"),
+            JavaObject::InstanceFunction(_) => print!("<Function instance>"),
+            JavaObject::InstancePredicate(_) => print!("<Predicate instance>"),
+            JavaObject::InstanceConsumer(_) => print!("<Consumer instance>"),
         };
     }
 }
