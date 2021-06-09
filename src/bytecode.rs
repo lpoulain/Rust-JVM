@@ -172,7 +172,18 @@ impl ByteCodeInstruction for InstrLdc {
         jvm.push(self.value.clone());
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      ldc"); }
+    fn print(&self) {
+        print!("      ldc ");
+        match &*self.value {
+            JavaObject::STRING(str) => print!("\"{}\"", *str),
+            JavaObject::INTEGER(nb) => print!("{}", *nb),
+            JavaObject::LONG(nb) => print!("{}", *nb),
+            JavaObject::FLOAT(nb) => print!("{}", *nb),
+            JavaObject::DOUBLE(nb) => print!("{}", *nb),
+            _ => print!("<??>")
+        };
+        println!();
+    }
 }
 
 pub struct InstrLdcF { value: f32 }
@@ -1105,6 +1116,11 @@ impl ByteCodeInstruction for InstrIfeq {
                     return InstrNextAction::GOTO(self.branch);
                 }
             },
+            JavaObject::BOOLEAN(value) => {
+                if !*value {
+                    return InstrNextAction::GOTO(self.branch);
+                }
+            }
             _ => panic!("ifeq expects an integer in the stack")
         };
         return InstrNextAction::NEXT;
@@ -1360,6 +1376,89 @@ impl ByteCodeInstruction for InstrGoto {
             Some(instr_idx) => { self.branch = *instr_idx; },
             _ => panic!("Unknown branch position {}", self.branch)
         }
+    }
+}
+
+pub struct InstrTableSwitch { default: usize, low: usize, table: Vec<usize> }
+impl ByteCodeInstruction for InstrTableSwitch {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let arg = jvm.pop();
+        let idx = match &*arg {
+            JavaObject::INTEGER(nb) => *nb,
+            _ => panic!("tableswitch expects an integer as argument")
+        };
+        
+        let offset = (idx - self.low as i32) as usize;
+        match self.table.get(offset) {
+            Some(goto) => return InstrNextAction::GOTO(*goto),
+            _ => return InstrNextAction::GOTO(self.default)
+        };
+    }
+
+    fn print(&self) {
+        print!("      tableswitch");
+        let mut nb = self.low;
+        for jump in self.table.iter() {
+            print!("  {}=>{}", nb, *jump);
+            nb += 1;
+        }
+        println!("  default=>{}", self.default);
+    }
+
+    fn set_branch(&mut self, address_map: &HashMap<usize, usize>) {
+        let mut new_table: Vec<usize> = Vec::new();
+        for goto in self.table.iter() {
+            match address_map.get(goto) {
+                Some(new_address) => new_table.push(*new_address),
+                _ => panic!("Unknown branch position {}", goto)
+            };
+        }
+        self.table = new_table;
+
+        match address_map.get(&self.default) {
+            Some(new_address) => self.default = *new_address,
+            _ => panic!("Unknown branch position {}", self.default)
+        };
+    }
+}
+
+pub struct InstrLookupSwitch { default: usize, lookup: HashMap<i32, usize> }
+impl ByteCodeInstruction for InstrLookupSwitch {
+    fn execute(&self, _class: &BytecodeClass, jvm: &mut JVM, _classes: &Classes) -> InstrNextAction {
+        let arg = jvm.pop();
+        let idx = match &*arg {
+            JavaObject::INTEGER(nb) => *nb,
+            _ => panic!("tableswitch expects an integer as argument")
+        };
+        
+        match self.lookup.get(&idx) {
+            Some(goto) => return InstrNextAction::GOTO(*goto),
+            _ => return InstrNextAction::GOTO(self.default)
+        };
+    }
+
+    fn print(&self) {
+        print!("      lookupswitch");
+        for (value, goto) in self.lookup.iter() {
+            print!("  {}=>{}", value, goto);
+        }
+        println!("  default=>{}", self.default);
+    }
+
+    fn set_branch(&mut self, address_map: &HashMap<usize, usize>) {
+        let mut new_lookup: HashMap<i32, usize> = HashMap::new();
+        for (value, goto) in self.lookup.iter() {
+            match address_map.get(goto) {
+                Some(new_address) => new_lookup.insert(*value, *new_address),
+                _ => panic!("Unknown branch position {}", goto)
+            };
+        }
+        self.lookup = new_lookup;
+
+        match address_map.get(&self.default) {
+            Some(new_address) => self.default = *new_address,
+            _ => panic!("Unknown branch position {}", self.default)
+        };
     }
 }
 
@@ -1806,8 +1905,37 @@ impl ByteCode {
 //                0xa5 => if_acmpeq
 //                0xa6 => if_acmpne
                 0xa7 => Box::new(InstrGoto { branch: (data_offset as i16 + data.get_i16()) as usize }),
-//                0xaa => tableswitch
-//                0xab => lookupswitch
+                0xaa => {
+                    let offset = data_offset;
+                    for _ in 0..((4 - (offset + 1) % 4) % 4) {
+                        data.get_u8();
+                    }
+                    let default = offset + data.get_u32size();
+                    let low = data.get_u32size();
+                    let high = data.get_u32size();
+                    let nb_jumps = high - low + 1;
+                    let mut jumps: Vec<usize> = Vec::new();
+                    for _ in 0..nb_jumps {
+                        let jump = data.get_u32size() + offset;
+                        jumps.push(jump);
+                    }
+                    Box::new(InstrTableSwitch { default, low, table: jumps })
+                },
+                0xab => {
+                    let offset = data_offset;
+                    for _ in 0..((4 - (offset + 1) % 4) % 4) {
+                        data.get_u8();
+                    }
+                    let default = offset + data.get_u32size();
+                    let nb_pairs = data.get_u32size();
+                    let mut pairs: HashMap<i32, usize> = HashMap::new();
+                    for _ in 0..nb_pairs {
+                        let value = data.get_u32size();
+                        let goto = offset + data.get_u32size();
+                        pairs.insert(value as i32, goto);
+                    }
+                    Box::new(InstrLookupSwitch { default, lookup: pairs })
+                },
                 0xac => Box::new(InstrIReturn {}),
                 0xad => Box::new(InstrLReturn {}),
                 0xae => Box::new(InstrFReturn {}),

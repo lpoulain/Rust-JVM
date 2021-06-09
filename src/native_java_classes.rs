@@ -173,6 +173,40 @@ impl JavaClass for NativeStringClass {
                     _ => panic!("String.toLowerCase() requires 'this' to be a string")
                 };
                 jvm.push(Rc::new(JavaObject::STRING(the_string.to_lowercase())));
+            },
+            "hashCode" => {
+                let this = jvm.pop();
+                let the_string = match &*this {
+                    JavaObject::STRING(str) => str,
+                    _ => panic!("String.toLowerCase() requires 'this' to be a string")
+                };
+                let mut n = the_string.len() as u32;
+    
+                let mut hash: i32 = 0;
+    
+                let str = the_string.as_bytes();
+                let thirty_one: i32 = 31;
+    
+                for c in str {
+                    n -= 1;
+                    hash += (*c as i32) * i32::pow(thirty_one, n);
+                }
+                jvm.push(Rc::new(JavaObject::INTEGER(hash)));
+            },
+            "equals" => {
+                let arg = jvm.pop();
+                let this = jvm.pop();
+
+                let string1 = match &*this {
+                    JavaObject::STRING(str) => str,
+                    _ => panic!("String.toLowerCase() requires 'this' to be a string")
+                };
+
+                let string2 = match &*arg {
+                    JavaObject::STRING(str) => str,
+                    _ => panic!("String.toLowerCase() requires 'this' to be a string")
+                };
+                jvm.push(Rc::new(JavaObject::BOOLEAN(string1.eq(string2))));
             }
             _ => panic!("String.{}() not implemented yet", method_name)
         };
