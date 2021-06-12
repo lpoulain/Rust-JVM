@@ -21,6 +21,7 @@ pub enum JavaObject {
     DOUBLE(f64),
     LONG(i64),
     BOOLEAN(bool),
+    CLASS(String),
     NULL(),
     InstanceList(RefCell<NativeArrayListInstance>),
     InstanceStream(RefCell<NativeStreamInstance>),
@@ -54,16 +55,40 @@ impl Classes {
     }
 }
 
-pub struct JVM {
+pub trait JavaInstance {
+    fn get_class_name(&self) -> String;
+    fn get_int(&self) -> i32 { panic!("{} cannot be converted into an integer", self.get_class_name()); }
+    fn get_long(&self) -> i64 { panic!("{} cannot be converted into an long", self.get_class_name()); }
+    fn get_float(&self) -> f32 { panic!("{} cannot be converted into a float", self.get_class_name()); }
+    fn get_double(&self) -> f64 { panic!("{} cannot be converted into a double", self.get_class_name()); }
+    fn call_method(&self, _method_name: &String, _nb_args: usize) { panic!("{} does not support any method", self.get_class_name()); }
+    fn update_field(&mut self, _value: &dyn JavaInstance) {
+
+    }
+}
+
+struct IntegerInstance { value: i32 }
+impl JavaInstance for IntegerInstance {
+    fn get_class_name(&self) -> String { String::from("java/util/Integer") }
+    fn update_field(&mut self, value: &dyn JavaInstance) {
+        self.value = value.get_int();
+    }
+}
+
+
+
+pub struct StackFrame {
+    stack2: Vec<Rc<RefCell<dyn JavaInstance>>>,
     stack: Vec<Rc<JavaObject>>,
     variables: [Rc<JavaObject>; 16],
     pub debug: u8,
     pub return_arg: bool
 }
 
-impl JVM {
-    pub fn new(variables: [Rc<JavaObject>; 16], debug: u8) -> JVM {
-        JVM {
+impl StackFrame {
+    pub fn new(variables: [Rc<JavaObject>; 16], debug: u8) -> StackFrame {
+        StackFrame {
+            stack2: Vec::new(),
             stack: Vec::new(),
             variables,
             debug,
@@ -72,11 +97,22 @@ impl JVM {
     }
 
     pub fn set_return_arg_flag(&mut self) {
-        self.return_arg = true;
+        let object = self.stack2.pop().unwrap();
+        object.borrow_mut().update_field(&IntegerInstance { value: 42 });
+    }
+
+    pub fn push2(&mut self, object: Rc<RefCell<dyn JavaInstance>>) {
+        self.stack2.push(object.clone());
     }
 
     pub fn push(&mut self, object: Rc<JavaObject>) {
-        self.stack.push(object);
+        self.stack.push(object.clone());
+    }
+
+    pub fn pop2(&mut self) -> Rc<RefCell<dyn JavaInstance>> {
+        let instance = self.stack2.pop().unwrap();
+        return instance.clone();
+//        return self.stack.pop().unwrap();
     }
 
     pub fn pop(&mut self) -> Rc<JavaObject> {
@@ -84,10 +120,11 @@ impl JVM {
     }
 
     pub fn pop_int(&mut self) -> i32 {
+//        return self.pop().get_int();
         let arg = self.pop();
         return match &*arg {
             JavaObject::INTEGER(int) => *int,
-            _ => panic!("Expected integer")
+            _ => panic!("Expected int")
         };
     }
 
@@ -174,6 +211,7 @@ impl JVM {
                 }
                 print!("]")
             },
+            JavaObject::CLASS(class) => { print!("Class {}", class); }
             JavaObject::InstanceList(_) => print!("<List instance>"),
             JavaObject::InstanceStream(_) => print!("<Stream instance>"),
             JavaObject::InstanceFunction(_) => print!("<Function instance>"),

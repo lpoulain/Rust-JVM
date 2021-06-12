@@ -5,7 +5,11 @@ A far-from-complete Java Virtual Machine written in Rust
 
 At this point it is a very primitive JVM. The files in the `java` folder (`Hello.java`, `Arithm.java`, `Streams.java`, `Person.java` and `Mandelbrot.java`) show what is currently being supported.
 
-See also the [Bytecode overview](bytecode.md) and the [Java Streams overview](streams.md) to have a glimpse of how Java/Scala/Kotlin code are converted into bytecode instructions.
+See also the following to understand more about Java/Scala/Kotlin code gets converted into bytecode instructions:
+
+- [Bytecode overview](bytecode.md)
+- [Java Streams overview](streams.md)
+- [The Java switch statement](switch.md)
 
 ## How to use it
 
@@ -32,7 +36,9 @@ Hello, World!
 Execute 3       return
 
 > ./target/debug/jvm Person
-John Doe
+John Smith
+Can legally drink (in the U.S.)
+Will or Kevin?
 
 > ./target/debug/jvm Streams Alice Bob Charlie Anna Delta
 alice

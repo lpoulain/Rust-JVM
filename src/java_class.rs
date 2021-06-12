@@ -6,10 +6,11 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 
-use crate::JVM;
+use crate::StackFrame;
 use crate::bytecode::ByteCode;
 use crate::bytecode::InstrNextAction;
 use crate::jvm::JavaObject;
+use crate::jvm::JavaInstance;
 use crate::jvm::Classes;
 use std::cell::RefCell;
 
@@ -651,14 +652,20 @@ pub trait JavaClass {
     }
     fn get_name(&self) -> String;
     fn print(&self);
-    fn execute_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
         panic!("Class {} does not support method {}", self.get_name(), method_name);
     }
-    fn execute_static_method(&self, _jvm: &mut JVM, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_method_args(&self, _this: Rc<dyn JavaInstance>, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _args: Vec<Box<dyn JavaInstance>>) {
+        panic!("Class {} does not support arg method {}", self.get_name(), method_name);
+    }
+    fn execute_static_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
         panic!("Class {} does not support static method {}", self.get_name(), method_name);
     }
-    fn get_static_object(&self, field_name: &String) -> JavaObject {
+    fn get_static_object(&self, field_name: &String) -> Rc<JavaObject> {
         panic!("Class {} does not have static field {}", self.get_name(), field_name);
+    }
+    fn put_static_object(&self, field_name: &String, _value: Rc<JavaObject>) -> JavaObject {
+        panic!("Class {} does not have static field {} to update", self.get_name(), field_name);
     }
     fn get_method_handles(&self) -> &HashMap<usize, ConstantMethodHandle> {
         panic!("Class {} has no get_method_handles() implemented", self.get_name());
@@ -667,6 +674,7 @@ pub trait JavaClass {
 
 pub struct BytecodeClass {
     pub name: String,
+    superclass_name: String,
     constants_class: HashMap<usize, ConstantClass>,
     constants_string: HashMap<usize, ConstantString>,
     constants_string_ref: HashMap<usize, ConstantStringRef>,
@@ -677,6 +685,7 @@ pub struct BytecodeClass {
     constants_dynamic: HashMap<usize, ConstantInvokeDynamic>,
     methods: HashMap<String, ByteCode>,
     pub bootstrap_methods: Vec<AttributeBootstrapMethod>,
+    static_fields: HashMap<String, Rc<JavaObject>>,
     debug: u8
 }
 
@@ -838,27 +847,42 @@ impl BytecodeClass {
 
         // super class
         let super_class_idx = data.get_u16size();
-        let constant_super_class = match constants_class.get(&super_class_idx) {
-            Some(class) => class,
+        let superclass_name = match constants_class.get(&super_class_idx) {
+            Some(class) => class.name.clone(),
             _ => panic!("Unknown class ID {}", super_class_idx)
         };
-        if debug >= 2 { println!("Super Class {}", constant_super_class.name); }
+        if debug >= 2 { println!("Super Class {}", superclass_name); }
 
         // interfaces_count
         let _interfaces_count = data.get_u16size();
+
+        let mut static_fields: HashMap<String, Rc<JavaObject>> = HashMap::new();
 
         // fields_count
         let fields_count = data.get_u16size();
         if debug >= 2 { println!("Fields: {}", fields_count); }
         for _ in 0..fields_count {
-            let _field_access_flag = data.get_u16size();
+            let field_access_flag = data.get_u16size();
             let field_idx = data.get_u16size();
             let field_name = match constants_string.get(&field_idx) {
                 Some(string) => string.value.clone(),
                 _ => panic!("Unknown string ID {}", field_idx)
             };
-            let _field_descriptor_idx = data.get_u16size();
-            if debug >= 2 { println!("Field [{}]", field_name); }
+            let field_descriptor_idx = data.get_u16size();
+            let stat = if (field_access_flag & 8) == 8 { "  STATIC" } else { "" };
+            if debug >= 2 { println!("Field [{}], type={}, access flag={} {}", field_name, field_descriptor_idx, field_access_flag, stat); }
+            if (field_access_flag & 8) == 8 {
+                match constants_string.get(&field_descriptor_idx) {
+                    Some(string) => {
+                        if string.value.starts_with("L") && string.value.ends_with(";") {
+                            static_fields.insert(field_name, Rc::new(JavaObject::INSTANCE(string.value[1..string.value.len()-1].to_string(), RefCell::new(HashMap::new()))));
+                        } else if string.value.starts_with("[") {
+                            static_fields.insert(field_name, Rc::new(JavaObject::ARRAY(RefCell::new(Vec::new()))));
+                        }
+                    },
+                    _ => panic!("Unknown string index {}", field_descriptor_idx)
+                };
+            }
 
             let attributes_count = data.get_u16size();
             for _ in 0..attributes_count {
@@ -963,6 +987,7 @@ impl BytecodeClass {
 
         BytecodeClass {
             name: constant_class.name.clone(),
+            superclass_name,
             constants_class,
             constants_string,
             constants_string_ref,
@@ -973,11 +998,12 @@ impl BytecodeClass {
             constants_dynamic,
             bootstrap_methods,
             methods,
+            static_fields,
             debug
         }
     }
 
-    fn execute_bytecode(&self, jvm: &mut JVM, classes: &Classes, method_name: &String) {
+    fn execute_bytecode(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String) {
         let bytecode = match self.methods.get(method_name) {
             Some(method) => method,
             _ => panic!("Unknown method {} in class {}", method_name, self.name)
@@ -992,7 +1018,7 @@ impl BytecodeClass {
                         print!("Execute {} ", instr_idx);
                         instr.print();
                     }
-                    match instr.execute(self, jvm, classes) {
+                    match instr.execute(self, sf, classes) {
                         InstrNextAction::NEXT => {
                             instr_idx += 1;
                         },
@@ -1000,7 +1026,7 @@ impl BytecodeClass {
                             instr_idx = idx;
                         }
                         InstrNextAction::RETURN => {
-                            if self.debug >= 1 { jvm.print_stack(); }
+                            if self.debug >= 1 { sf.print_stack(); }
                             return;
                         }
                     }
@@ -1051,50 +1077,60 @@ impl JavaClass for BytecodeClass {
         }
     }
 
-    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, nb_args: usize) {
+    fn execute_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, nb_args: usize) {
         if self.debug >= 1 { println!("Execute method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
 
-        let var = Rc::new(JavaObject::NULL());
-        let mut variables: [Rc<JavaObject>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
-            var.clone(), var.clone(), var.clone(), var.clone(),
-            var.clone(), var.clone(), var.clone(), var.clone(),
-            var.clone(), var.clone(), var.clone(), var.clone()];
+        if self.methods.contains_key(method_name) {
+            let var = Rc::new(JavaObject::NULL());
+            let mut variables: [Rc<JavaObject>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone()];
 
-        for i in 0..nb_args + 1 {
-            variables[nb_args - i] = jvm.pop();
-        }
+            for i in 0..nb_args + 1 {
+                variables[nb_args - i] = sf.pop();
+            }
 
-        let mut jvm_new = JVM::new(variables, jvm.debug);
+            let mut sf_new = StackFrame::new(variables, sf.debug);
 
-        self.execute_bytecode(&mut jvm_new, classes, method_name);
-        if jvm_new.return_arg {
-            jvm.push(jvm_new.pop());
+            self.execute_bytecode(&mut sf_new, classes, method_name);
+            if sf_new.return_arg {
+                sf.push(sf_new.pop());
+            }
+        } else {
+            let superclass = classes.get_class(&self.superclass_name);
+            superclass.execute_method(sf, classes, method_name, nb_args);
         }
     }
 
-    fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, nb_args: usize) {
         if self.debug >= 1 { println!("Execute static method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
 
-        let var = Rc::new(JavaObject::NULL());
-        let mut variables: [Rc<JavaObject>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
-            var.clone(), var.clone(), var.clone(), var.clone(),
-            var.clone(), var.clone(), var.clone(), var.clone(),
-            var.clone(), var.clone(), var.clone(), var.clone()];
+        if self.methods.contains_key(method_name) {
+            let var = Rc::new(JavaObject::NULL());
+            let mut variables: [Rc<JavaObject>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone(),
+                var.clone(), var.clone(), var.clone(), var.clone()];
 
-        for i in 0..nb_args {
-            variables[nb_args - 1 - i] = jvm.pop();
-        }
+            for i in 0..nb_args {
+                variables[nb_args - 1 - i] = sf.pop();
+            }
 
-        let mut jvm_new = JVM::new(variables, jvm.debug);
+            let mut sf_new = StackFrame::new(variables, sf.debug);
 
-        self.execute_bytecode(&mut jvm_new, classes, method_name);
-        if jvm_new.return_arg {
-            jvm.push(jvm_new.pop());
+            self.execute_bytecode(&mut sf_new, classes, method_name);
+            if sf_new.return_arg {
+                sf.push(sf_new.pop());
+            }
+        } else {
+            let superclass = classes.get_class(&self.superclass_name);
+            superclass.execute_static_method(sf, classes, method_name, nb_args);
         }
     }
 
-    fn get_static_object(&self, _field_name: &String) -> JavaObject {
-        panic!("Not implemented yet");
+    fn get_static_object(&self, field_name: &String) -> Rc<JavaObject> {
+        return self.static_fields.get(field_name).unwrap().clone();
     }
 }
 

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::jvm::JVM;
+use crate::jvm::StackFrame;
 use crate::jvm::JavaObject;
 use crate::jvm::Classes;
 use crate::java_class::JavaClass;
@@ -9,7 +9,7 @@ use crate::java_class::JavaClass;
 /////////////////// java.util.stream.Stream
 
 pub trait StreamFunction {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, jvm: &mut JVM, classes: &Classes) -> Option<Rc<JavaObject>>;
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame, classes: &Classes) -> Option<Rc<JavaObject>>;
     fn print(&self);
 }
 
@@ -28,7 +28,7 @@ impl NativeStreamData {
 }
 
 impl StreamFunction for NativeStreamData {
-    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _jvm: &mut JVM, _classes: &Classes) -> Option<Rc<JavaObject>> {
+    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame, _classes: &Classes) -> Option<Rc<JavaObject>> {
         let object = match self.data.get(self.idx) {
             Some(obj) => Some(obj.clone()),
             _ => None
@@ -67,9 +67,9 @@ impl JavaClass for NativeStreamClass {
         println!("Native Stream class");
     }
 
-    fn execute_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, _nb_args: usize) {
-        let arg = jvm.pop();
-        let this = jvm.pop();
+    fn execute_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, _nb_args: usize) {
+        let arg = sf.pop();
+        let this = sf.pop();
 
         match &method_name[..] {
             "filter" | "map" | "forEach" => {
@@ -106,10 +106,10 @@ impl JavaClass for NativeStreamClass {
                                 let class = classes.get_class(&consumer.borrow().class_name);
 
                                 loop {
-                                    match current_function.borrow_mut().next_object(0, &*stream.borrow(), jvm, &classes) {
+                                    match current_function.borrow_mut().next_object(0, &*stream.borrow(), sf, &classes) {
                                         Some(object) => {
-                                            jvm.push(object.clone());
-                                            class.execute_static_method(jvm, classes, &consumer.borrow().method_name, 1);
+                                            sf.push(object.clone());
+                                            class.execute_static_method(sf, classes, &consumer.borrow().method_name, 1);
                                         },
                                         None => break
                                     }
@@ -121,7 +121,7 @@ impl JavaClass for NativeStreamClass {
                     _ => panic!("Stream.filter() expects an instance as its first argument")
                 };
 
-                jvm.push(this);
+                sf.push(this);
             },
             _ => panic!("Native class {} does not have method [{}]", self.get_name(), method_name)
         };
@@ -141,14 +141,14 @@ impl JavaClass for NativeLambdaMetafactoryClass {
         println!("Native Stream class");
     }
 
-    fn execute_static_method(&self, jvm: &mut JVM, classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, _nb_args: usize) {
         if method_name.eq("metafactory") {
-            let _arg3 = jvm.pop();
-            let arg2 = jvm.pop();
-            let _arg1 = jvm.pop();
-            let _type = jvm.pop();
-            let action = jvm.pop();
-            let class = jvm.pop();
+            let _arg3 = sf.pop();
+            let arg2 = sf.pop();
+            let _arg1 = sf.pop();
+            let _type = sf.pop();
+            let action = sf.pop();
+            let class = sf.pop();
 
             let class = match &*class {
                 JavaObject::STRING(class_name) => classes.get_class(class_name),
@@ -176,7 +176,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                                 method_name,
                                 type_desc
                             };
-                            jvm.push(Rc::new(JavaObject::InstancePredicate(RefCell::new(object))));
+                            sf.push(Rc::new(JavaObject::InstancePredicate(RefCell::new(object))));
                         },
                         "apply" => {
                             let object = NativeFunctionInstance {
@@ -184,7 +184,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                                 method_name,
                                 type_desc
                             };
-                            jvm.push(Rc::new(JavaObject::InstanceFunction(RefCell::new(object))));
+                            sf.push(Rc::new(JavaObject::InstanceFunction(RefCell::new(object))));
                         },
                         "accept" => {
                             let object = NativeConsumerInstance {
@@ -192,7 +192,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                                 method_name,
                                 type_desc
                             };
-                            jvm.push(Rc::new(JavaObject::InstanceConsumer(RefCell::new(object))));
+                            sf.push(Rc::new(JavaObject::InstanceConsumer(RefCell::new(object))));
                         },
                         _ => panic!("LambdaMetafactory.metafactory(): Unsupported command {}", str)
                     };
@@ -204,7 +204,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
         panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
     }
 
-    fn get_static_object(&self, _field_name: &String) -> JavaObject {
+    fn get_static_object(&self, _field_name: &String) -> Rc<JavaObject> {
         panic!("Not implemented yet");
     }
 }
@@ -230,19 +230,19 @@ impl Clone for NativePredicateInstance {
 pub struct NativePredicateClass { }
 
 impl StreamFunction for NativePredicateInstance {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, jvm: &mut JVM, classes: &Classes) -> Option<Rc<JavaObject>> {
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame, classes: &Classes) -> Option<Rc<JavaObject>> {
         match stream.operations.get(function_idx + 1) {
             Some(function) => {
                 let class = classes.get_class(&self.class_name);
 
                 loop {
-                    let object = function.borrow_mut().next_object(function_idx + 1, &stream, jvm, classes);
+                    let object = function.borrow_mut().next_object(function_idx + 1, &stream, sf, classes);
 
                     match object {
                         Some(obj) => {
-                            jvm.push(obj.clone());
-                            class.execute_static_method(jvm, classes, &self.method_name, 1);
-                            let result = jvm.pop();
+                            sf.push(obj.clone());
+                            class.execute_static_method(sf, classes, &self.method_name, 1);
+                            let result = sf.pop();
                             match &*result {
                                 JavaObject::BOOLEAN(is_predicate_valid) => {
                                     if *is_predicate_valid {
@@ -289,18 +289,18 @@ impl Clone for NativeFunctionInstance {
 }
 
 impl StreamFunction for NativeFunctionInstance {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, jvm: &mut JVM, classes: &Classes) -> Option<Rc<JavaObject>> {
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame, classes: &Classes) -> Option<Rc<JavaObject>> {
         match stream.operations.get(function_idx + 1) {
             Some(function) => {
                 let class = classes.get_class(&self.class_name);
 
-                let object = function.borrow_mut().next_object(function_idx + 1, &stream, jvm, classes);
+                let object = function.borrow_mut().next_object(function_idx + 1, &stream, sf, classes);
 
                 match object {
                     Some(obj) => {
-                        jvm.push(obj);
-                        class.execute_static_method(jvm, classes, &self.method_name, 1);
-                        return Some(jvm.pop());
+                        sf.push(obj);
+                        class.execute_static_method(sf, classes, &self.method_name, 1);
+                        return Some(sf.pop());
                     },
                     None => return None
                 };
