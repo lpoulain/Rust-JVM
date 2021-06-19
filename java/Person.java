@@ -5,6 +5,7 @@ class Person {
     String firstName;
     String lastName;
     List<String> locations;
+    AgeRange ageRange;
     int age;
 
     public Person(String firstName, String lastName, int age) {
@@ -12,6 +13,7 @@ class Person {
         this.lastName = lastName;
         this.age = age;
         this.locations = new ArrayList<>();
+        this.ageRange = AgeRange.AGE_20_39;
     }
 
     public void addLocation(String location) {
@@ -76,6 +78,32 @@ class Person {
         }
     }
 
+    public void printAgeRange() {
+        switch (this.ageRange) {
+            case AGE_0_9:
+                System.out.println("Young");
+                break;
+            case AGE_10_19:
+                System.out.println("Teen");
+                break;
+            case AGE_20_39:
+                System.out.println("Young Adult");
+                break;
+            case AGE_40_64:
+                System.out.println("Adult");
+                break;
+            case AGE_65_79:
+                System.out.println("Retired");
+                break;
+            case AGE_80_99:
+                System.out.println("Old");
+                break;
+            case AGE_100_PLUS:
+                System.out.println("Wish to reach THAT age!");
+                break;
+        }
+    }
+
     public String fullName() {
         return String.format("%s %s", this.firstName, this.lastName);
     }
@@ -86,6 +114,7 @@ class Person {
 
         System.out.println(p.fullName());
         p.printAgeInfo();
+        p.printAgeRange();
         p.printLastNameInfo();
     }
 }

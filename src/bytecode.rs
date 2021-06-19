@@ -2,21 +2,28 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::java_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble, get_nb_arguments};
-use crate::java_class::ConstantString;
-use crate::java_class::ConstantStringRef;
-use crate::java_class::ConstantClass;
-use crate::java_class::ConstantMethod;
-use crate::java_class::ConstantNameType;
-use crate::java_class::ConstantInvokeDynamic;
+use crate::DEBUG;
+use crate::bytecode_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble };
+use crate::bytecode_class::ConstantString;
+use crate::bytecode_class::ConstantStringRef;
+use crate::bytecode_class::ConstantClass;
+use crate::bytecode_class::ConstantMethod;
+use crate::bytecode_class::ConstantNameType;
+use crate::bytecode_class::ConstantInvokeDynamic;
 use crate::StackFrame;
-use crate::java_class::Blob;
-use crate::java_class::BytecodeClass;
-use crate::jvm::JavaObject;
+use crate::bytecode_class::Blob;
+use crate::java_class::JavaClassInstance;
+use crate::java_class::get_nb_arguments;
+use crate::jvm::JavaInstance;
 use crate::Classes;
+use crate::native_java_classes::NativeDoubleInstance;
+use crate::native_java_classes::NativeFloatInstance;
+use crate::native_java_classes::NativeIntegerInstance;
+use crate::native_java_classes::NativeLongInstance;
+use crate::native_java_classes::NativeStringInstance;
 
 pub trait ByteCodeInstruction {
-    fn execute(&self, class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction;
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction;
     fn print(&self);
     fn set_branch(&mut self, _address_map: &HashMap<usize, usize>) {}
 }
@@ -32,7 +39,7 @@ pub enum InstrNextAction {
 
 pub struct InstrNop { }
 impl ByteCodeInstruction for InstrNop {
-    fn execute(&self, _class: &BytecodeClass, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      nop"); }
@@ -40,8 +47,8 @@ impl ByteCodeInstruction for InstrNop {
 
 pub struct InstrIConst { value: i32 }
 impl ByteCodeInstruction for InstrIConst {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::INTEGER(self.value)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_int(self.value);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iconst_{}", self.value); }
@@ -49,8 +56,8 @@ impl ByteCodeInstruction for InstrIConst {
 
 pub struct InstrLConst0 { }
 impl ByteCodeInstruction for InstrLConst0 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::LONG(0)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_long(0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lconst_0"); }
@@ -58,8 +65,8 @@ impl ByteCodeInstruction for InstrLConst0 {
 
 pub struct InstrLConst1 { }
 impl ByteCodeInstruction for InstrLConst1 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::LONG(1)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_long(1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lconst_1"); }
@@ -67,8 +74,8 @@ impl ByteCodeInstruction for InstrLConst1 {
 
 pub struct InstrFConst0 { }
 impl ByteCodeInstruction for InstrFConst0 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::FLOAT(0.0)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_float(0.0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fconst_0"); }
@@ -76,8 +83,8 @@ impl ByteCodeInstruction for InstrFConst0 {
 
 pub struct InstrFConst1 { }
 impl ByteCodeInstruction for InstrFConst1 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::FLOAT(1.0)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_float(1.0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fconst_1"); }
@@ -85,8 +92,8 @@ impl ByteCodeInstruction for InstrFConst1 {
 
 pub struct InstrFConst2 { }
 impl ByteCodeInstruction for InstrFConst2 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::FLOAT(2.0)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_float(2.0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fconst_2"); }
@@ -94,8 +101,8 @@ impl ByteCodeInstruction for InstrFConst2 {
 
 pub struct InstrDConst0 { }
 impl ByteCodeInstruction for InstrDConst0 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::DOUBLE(0.0)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_double(0.0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dconst_0"); }
@@ -103,8 +110,8 @@ impl ByteCodeInstruction for InstrDConst0 {
 
 pub struct InstrDConst1 { }
 impl ByteCodeInstruction for InstrDConst1 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::DOUBLE(1.0)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_double(1.0);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dconst_1"); }
@@ -114,8 +121,8 @@ impl ByteCodeInstruction for InstrDConst1 {
 
 pub struct InstrBiPush { value: u8 }
 impl ByteCodeInstruction for InstrBiPush {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::INTEGER(self.value as i32)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_int(self.value as i32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      bipush {}", self.value); }
@@ -123,7 +130,7 @@ impl ByteCodeInstruction for InstrBiPush {
 
 pub struct InstrILoad { variable: u8 }
 impl ByteCodeInstruction for InstrILoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -132,7 +139,7 @@ impl ByteCodeInstruction for InstrILoad {
 
 pub struct InstrLLoad { variable: u8 }
 impl ByteCodeInstruction for InstrLLoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -141,7 +148,7 @@ impl ByteCodeInstruction for InstrLLoad {
 
 pub struct InstrFLoad { variable: u8 }
 impl ByteCodeInstruction for InstrFLoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -150,7 +157,7 @@ impl ByteCodeInstruction for InstrFLoad {
 
 pub struct InstrDLoad { variable: u8 }
 impl ByteCodeInstruction for InstrDLoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -159,37 +166,30 @@ impl ByteCodeInstruction for InstrDLoad {
 
 pub struct InstrALoad { variable: u8 }
 impl ByteCodeInstruction for InstrALoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aload {}", self.variable); }
 }
 
-pub struct InstrLdc { value: Rc<JavaObject> }
+pub struct InstrLdc { value: Rc<RefCell<dyn JavaInstance>> }
 impl ByteCodeInstruction for InstrLdc {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.push(self.value.clone());
         return InstrNextAction::NEXT;
     }
     fn print(&self) {
         print!("      ldc ");
-        match &*self.value {
-            JavaObject::STRING(str) => print!("\"{}\"", *str),
-            JavaObject::INTEGER(nb) => print!("{}", *nb),
-            JavaObject::LONG(nb) => print!("{}", *nb),
-            JavaObject::FLOAT(nb) => print!("{}", *nb),
-            JavaObject::DOUBLE(nb) => print!("{}", *nb),
-            _ => print!("<??>")
-        };
+        self.value.borrow().print();
         println!();
     }
 }
 
 pub struct InstrLdcF { value: f32 }
 impl ByteCodeInstruction for InstrLdcF {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        sf.push(Rc::new(JavaObject::FLOAT(self.value)));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.push_float(self.value);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ldc {}", self.value); }
@@ -197,7 +197,7 @@ impl ByteCodeInstruction for InstrLdcF {
 
 pub struct InstrILoadN { variable: u8 }
 impl ByteCodeInstruction for InstrILoadN {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -206,7 +206,7 @@ impl ByteCodeInstruction for InstrILoadN {
 
 pub struct InstrLLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrLLoadN {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -217,7 +217,7 @@ impl ByteCodeInstruction for InstrLLoadN {
 
 pub struct InstrFLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrFLoadN {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -226,7 +226,7 @@ impl ByteCodeInstruction for InstrFLoadN {
 
 pub struct InstrDLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrDLoadN {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -235,7 +235,7 @@ impl ByteCodeInstruction for InstrDLoadN {
 
 pub struct InstrALoadN { variable: u8 }
 impl ByteCodeInstruction for InstrALoadN {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -244,14 +244,11 @@ impl ByteCodeInstruction for InstrALoadN {
 
 pub struct InstrIALoad {}
 impl ByteCodeInstruction for InstrIALoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let idx = sf.pop_int();
-        let val = sf.pop();
-        let array = match &*val {
-            JavaObject::ARRAY(array) => array.borrow(),
-            _ => panic!("Unknown object in the stack. Was expecting an array")
-        };
-        let object: &Rc<JavaObject> = match array.get(idx as usize) {
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -263,14 +260,11 @@ impl ByteCodeInstruction for InstrIALoad {
 
 pub struct InstrLALoad {}
 impl ByteCodeInstruction for InstrLALoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let idx = sf.pop_int();
-        let val = sf.pop();
-        let array = match &*val {
-            JavaObject::ARRAY(array) => array.borrow(),
-            _ => panic!("Unknown object in the stack. Was expecting an array")
-        };
-        let object: &Rc<JavaObject> = match array.get(idx as usize) {
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -284,14 +278,11 @@ impl ByteCodeInstruction for InstrLALoad {
 
 pub struct InstrFALoad {}
 impl ByteCodeInstruction for InstrFALoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let idx = sf.pop_int();
-        let val = sf.pop();
-        let array = match &*val {
-            JavaObject::ARRAY(array) => array.borrow(),
-            _ => panic!("Unknown object in the stack. Was expecting an array")
-        };
-        let object: &Rc<JavaObject> = match array.get(idx as usize) {
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -303,14 +294,11 @@ impl ByteCodeInstruction for InstrFALoad {
 
 pub struct InstrDALoad {}
 impl ByteCodeInstruction for InstrDALoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let idx = sf.pop_int();
-        let val = sf.pop();
-        let array = match &*val {
-            JavaObject::ARRAY(array) => array.borrow(),
-            _ => panic!("Unknown object in the stack. Was expecting an array")
-        };
-        let object: &Rc<JavaObject> = match array.get(idx as usize) {
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -322,14 +310,11 @@ impl ByteCodeInstruction for InstrDALoad {
 
 pub struct InstrAALoad {}
 impl ByteCodeInstruction for InstrAALoad {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let idx = sf.pop_int();
-        let val = sf.pop();
-        let array = match &*val {
-            JavaObject::ARRAY(array) => array.borrow(),
-            _ => panic!("Unknown object in the stack. Was expecting an array")
-        };
-        let object: &Rc<JavaObject> = match array.get(idx as usize) {
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -341,7 +326,7 @@ impl ByteCodeInstruction for InstrAALoad {
 
 pub struct InstrIStore { variable: u8 }
 impl ByteCodeInstruction for InstrIStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -350,7 +335,7 @@ impl ByteCodeInstruction for InstrIStore {
 
 pub struct InstrLStore { variable: u8 }
 impl ByteCodeInstruction for InstrLStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -359,7 +344,7 @@ impl ByteCodeInstruction for InstrLStore {
 
 pub struct InstrFStore { variable: u8 }
 impl ByteCodeInstruction for InstrFStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -368,7 +353,7 @@ impl ByteCodeInstruction for InstrFStore {
 
 pub struct InstrDStore { variable: u8 }
 impl ByteCodeInstruction for InstrDStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -377,7 +362,7 @@ impl ByteCodeInstruction for InstrDStore {
 
 pub struct InstrAStore { variable: u8 }
 impl ByteCodeInstruction for InstrAStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -386,7 +371,7 @@ impl ByteCodeInstruction for InstrAStore {
 
 pub struct InstrIStore0 {}
 impl ByteCodeInstruction for InstrIStore0 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
@@ -395,7 +380,7 @@ impl ByteCodeInstruction for InstrIStore0 {
 
 pub struct InstrIStore1 {}
 impl ByteCodeInstruction for InstrIStore1 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
@@ -404,7 +389,7 @@ impl ByteCodeInstruction for InstrIStore1 {
 
 pub struct InstrIStore2 {}
 impl ByteCodeInstruction for InstrIStore2 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
@@ -413,7 +398,7 @@ impl ByteCodeInstruction for InstrIStore2 {
 
 pub struct InstrIStore3 {}
 impl ByteCodeInstruction for InstrIStore3 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
@@ -424,7 +409,7 @@ impl ByteCodeInstruction for InstrIStore3 {
 
 pub struct InstrFStore0 {}
 impl ByteCodeInstruction for InstrFStore0 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
@@ -433,7 +418,7 @@ impl ByteCodeInstruction for InstrFStore0 {
 
 pub struct InstrFStore1 {}
 impl ByteCodeInstruction for InstrFStore1 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
@@ -442,7 +427,7 @@ impl ByteCodeInstruction for InstrFStore1 {
 
 pub struct InstrFStore2 {}
 impl ByteCodeInstruction for InstrFStore2 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
@@ -451,7 +436,7 @@ impl ByteCodeInstruction for InstrFStore2 {
 
 pub struct InstrFStore3 {}
 impl ByteCodeInstruction for InstrFStore3 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
@@ -460,7 +445,7 @@ impl ByteCodeInstruction for InstrFStore3 {
 
 pub struct InstrAStore0 {}
 impl ByteCodeInstruction for InstrAStore0 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
@@ -469,7 +454,7 @@ impl ByteCodeInstruction for InstrAStore0 {
 
 pub struct InstrAStore1 {}
 impl ByteCodeInstruction for InstrAStore1 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
@@ -478,7 +463,7 @@ impl ByteCodeInstruction for InstrAStore1 {
 
 pub struct InstrAStore2 {}
 impl ByteCodeInstruction for InstrAStore2 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
@@ -487,7 +472,7 @@ impl ByteCodeInstruction for InstrAStore2 {
 
 pub struct InstrAStore3 {}
 impl ByteCodeInstruction for InstrAStore3 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
@@ -496,14 +481,10 @@ impl ByteCodeInstruction for InstrAStore3 {
 
 pub struct InstrIAStore {}
 impl ByteCodeInstruction for InstrIAStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
-        let arg = sf.pop();
-        let array = match &*arg {
-            JavaObject::ARRAY(array) => array,
-            _ => panic!("Excepted array in the stack")
-        };
+        let array = sf.pop_array();
         array.borrow_mut()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
@@ -514,14 +495,10 @@ impl ByteCodeInstruction for InstrIAStore {
 
 pub struct InstrLAStore {}
 impl ByteCodeInstruction for InstrLAStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
-        let arg = sf.pop();
-        let array = match &*arg {
-            JavaObject::ARRAY(array) => array,
-            _ => panic!("Excepted array in the stack")
-        };
+        let array = sf.pop_array();
         array.borrow_mut()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
@@ -530,14 +507,10 @@ impl ByteCodeInstruction for InstrLAStore {
 
 pub struct InstrFAStore {}
 impl ByteCodeInstruction for InstrFAStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
-        let arg = sf.pop();
-        let array = match &*arg {
-            JavaObject::ARRAY(array) => array,
-            _ => panic!("Excepted array in the stack")
-        };
+        let array = sf.pop_array();
         array.borrow_mut()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
@@ -546,14 +519,10 @@ impl ByteCodeInstruction for InstrFAStore {
 
 pub struct InstrDAStore {}
 impl ByteCodeInstruction for InstrDAStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
-        let arg = sf.pop();
-        let array = match &*arg {
-            JavaObject::ARRAY(array) => array,
-            _ => panic!("Excepted array in the stack")
-        };
+        let array = sf.pop_array();
         array.borrow_mut()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
@@ -562,14 +531,10 @@ impl ByteCodeInstruction for InstrDAStore {
 
 pub struct InstrAAStore {}
 impl ByteCodeInstruction for InstrAAStore {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
-        let arg = sf.pop();
-        let array = match &*arg {
-            JavaObject::ARRAY(array) => array,
-            _ => panic!("Excepted array in the stack")
-        };
+        let array = sf.pop_array();
         array.borrow_mut()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
@@ -578,7 +543,7 @@ impl ByteCodeInstruction for InstrAAStore {
 
 pub struct InstrPop { }
 impl ByteCodeInstruction for InstrPop {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.pop();
         return InstrNextAction::NEXT;
     }
@@ -587,14 +552,9 @@ impl ByteCodeInstruction for InstrPop {
 
 pub struct InstrPop2 { }
 impl ByteCodeInstruction for InstrPop2 {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        match &*arg {
-            JavaObject::DOUBLE(_) | JavaObject::LONG(_) => {},
-            _ => {
-                sf.pop();
-            }
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.pop();
+        sf.pop();
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      pop"); }
@@ -602,7 +562,7 @@ impl ByteCodeInstruction for InstrPop2 {
 
 pub struct InstrDup { }
 impl ByteCodeInstruction for InstrDup {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let arg = sf.pop();
         sf.push(arg.clone());
         sf.push(arg.clone());
@@ -616,10 +576,10 @@ impl ByteCodeInstruction for InstrDup {
 
 pub struct InstrIAdd {}
 impl ByteCodeInstruction for InstrIAdd {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 + nb1)));
+        sf.push_int(nb2 + nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iadd"); }
@@ -627,10 +587,10 @@ impl ByteCodeInstruction for InstrIAdd {
 
 pub struct InstrLAdd {}
 impl ByteCodeInstruction for InstrLAdd {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 + nb1)));
+        sf.push_long(nb2 + nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ladd"); }
@@ -638,10 +598,10 @@ impl ByteCodeInstruction for InstrLAdd {
 
 pub struct InstrFAdd {}
 impl ByteCodeInstruction for InstrFAdd {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
-        sf.push(Rc::new(JavaObject::FLOAT(nb2 + nb1)));
+        sf.push_float(nb2 + nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fadd"); }
@@ -649,10 +609,10 @@ impl ByteCodeInstruction for InstrFAdd {
 
 pub struct InstrDAdd {}
 impl ByteCodeInstruction for InstrDAdd {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb2 + nb1)));
+        sf.push_double(nb2 + nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dadd"); }
@@ -660,10 +620,10 @@ impl ByteCodeInstruction for InstrDAdd {
 
 pub struct InstrISub {}
 impl ByteCodeInstruction for InstrISub {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 - nb1)));
+        sf.push_int(nb2 - nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      isub"); }
@@ -671,10 +631,10 @@ impl ByteCodeInstruction for InstrISub {
 
 pub struct InstrLSub {}
 impl ByteCodeInstruction for InstrLSub {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 - nb1)));
+        sf.push_long(nb2 - nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lsub"); }
@@ -682,10 +642,10 @@ impl ByteCodeInstruction for InstrLSub {
 
 pub struct InstrFSub {}
 impl ByteCodeInstruction for InstrFSub {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
-        sf.push(Rc::new(JavaObject::FLOAT(nb2 - nb1)));
+        sf.push_float(nb2 - nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fsub"); }
@@ -693,10 +653,10 @@ impl ByteCodeInstruction for InstrFSub {
 
 pub struct InstrDSub {}
 impl ByteCodeInstruction for InstrDSub {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb2 - nb1)));
+        sf.push_double(nb2 - nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dsub"); }
@@ -704,10 +664,10 @@ impl ByteCodeInstruction for InstrDSub {
 
 pub struct InstrIMul {}
 impl ByteCodeInstruction for InstrIMul {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 * nb1)));
+        sf.push_int(nb2 * nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      imul"); }
@@ -715,10 +675,10 @@ impl ByteCodeInstruction for InstrIMul {
 
 pub struct InstrLMul {}
 impl ByteCodeInstruction for InstrLMul {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 * nb1)));
+        sf.push_long(nb2 * nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lmul"); }
@@ -726,10 +686,10 @@ impl ByteCodeInstruction for InstrLMul {
 
 pub struct InstrFMul {}
 impl ByteCodeInstruction for InstrFMul {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
-        sf.push(Rc::new(JavaObject::FLOAT(nb2 * nb1)));
+        sf.push_float(nb2 * nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fmul"); }
@@ -737,10 +697,10 @@ impl ByteCodeInstruction for InstrFMul {
 
 pub struct InstrDMul {}
 impl ByteCodeInstruction for InstrDMul {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb2 * nb1)));
+        sf.push_double(nb2 * nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dmul"); }
@@ -748,10 +708,10 @@ impl ByteCodeInstruction for InstrDMul {
 
 pub struct InstrIDiv {}
 impl ByteCodeInstruction for InstrIDiv {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 / nb1)));
+        sf.push_int(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      idiv"); }
@@ -759,10 +719,10 @@ impl ByteCodeInstruction for InstrIDiv {
 
 pub struct InstrLDiv {}
 impl ByteCodeInstruction for InstrLDiv {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 / nb1)));
+        sf.push_long(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ldiv"); }
@@ -770,10 +730,10 @@ impl ByteCodeInstruction for InstrLDiv {
 
 pub struct InstrFDiv {}
 impl ByteCodeInstruction for InstrFDiv {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
-        sf.push(Rc::new(JavaObject::FLOAT(nb2 / nb1)));
+        sf.push_float(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fdiv"); }
@@ -781,10 +741,10 @@ impl ByteCodeInstruction for InstrFDiv {
 
 pub struct InstrDDiv {}
 impl ByteCodeInstruction for InstrDDiv {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb2 / nb1)));
+        sf.push_double(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ddiv"); }
@@ -794,10 +754,10 @@ impl ByteCodeInstruction for InstrDDiv {
 
 pub struct InstrIRem {}
 impl ByteCodeInstruction for InstrIRem {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 % nb1)));
+        sf.push_int(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      irem"); }
@@ -805,10 +765,10 @@ impl ByteCodeInstruction for InstrIRem {
 
 pub struct InstrLRem {}
 impl ByteCodeInstruction for InstrLRem {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 % nb1)));
+        sf.push_long(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lrem"); }
@@ -816,10 +776,10 @@ impl ByteCodeInstruction for InstrLRem {
 
 pub struct InstrFRem {}
 impl ByteCodeInstruction for InstrFRem {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
-        sf.push(Rc::new(JavaObject::FLOAT(nb2 % nb1)));
+        sf.push_float(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      frem"); }
@@ -827,10 +787,10 @@ impl ByteCodeInstruction for InstrFRem {
 
 pub struct InstrDRem {}
 impl ByteCodeInstruction for InstrDRem {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb2 % nb1)));
+        sf.push_double(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      drem"); }
@@ -838,9 +798,9 @@ impl ByteCodeInstruction for InstrDRem {
 
 pub struct InstrINeg {}
 impl ByteCodeInstruction for InstrINeg {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(-nb)));
+        sf.push_int(-nb);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ineg"); }
@@ -848,9 +808,9 @@ impl ByteCodeInstruction for InstrINeg {
 
 pub struct InstrLNeg {}
 impl ByteCodeInstruction for InstrLNeg {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(-nb)));
+        sf.push_long(-nb);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lneg"); }
@@ -858,9 +818,9 @@ impl ByteCodeInstruction for InstrLNeg {
 
 pub struct InstrFNeg {}
 impl ByteCodeInstruction for InstrFNeg {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_float();
-        sf.push(Rc::new(JavaObject::FLOAT(-nb)));
+        sf.push_float(-nb);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fneg"); }
@@ -868,9 +828,9 @@ impl ByteCodeInstruction for InstrFNeg {
 
 pub struct InstrDNeg {}
 impl ByteCodeInstruction for InstrDNeg {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_double();
-        sf.push(Rc::new(JavaObject::DOUBLE(-nb)));
+        sf.push_double(-nb);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dneg"); }
@@ -878,10 +838,10 @@ impl ByteCodeInstruction for InstrDNeg {
 
 pub struct InstrIAnd {}
 impl ByteCodeInstruction for InstrIAnd {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 & nb1)));
+        sf.push_int(nb2 & nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iand"); }
@@ -889,10 +849,10 @@ impl ByteCodeInstruction for InstrIAnd {
 
 pub struct InstrLAnd {}
 impl ByteCodeInstruction for InstrLAnd {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 & nb1)));
+        sf.push_long(nb2 & nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      land"); }
@@ -902,10 +862,10 @@ impl ByteCodeInstruction for InstrLAnd {
 
 pub struct InstrIOr {}
 impl ByteCodeInstruction for InstrIOr {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 & nb1)));
+        sf.push_int(nb2 | nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ior"); }
@@ -913,10 +873,10 @@ impl ByteCodeInstruction for InstrIOr {
 
 pub struct InstrLOr {}
 impl ByteCodeInstruction for InstrLOr {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 | nb1)));
+        sf.push_long(nb2 | nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lor"); }
@@ -924,10 +884,10 @@ impl ByteCodeInstruction for InstrLOr {
 
 pub struct InstrIXor {}
 impl ByteCodeInstruction for InstrIXor {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
-        sf.push(Rc::new(JavaObject::INTEGER(nb2 ^ nb1)));
+        sf.push_int(nb2 ^ nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ixor"); }
@@ -935,10 +895,10 @@ impl ByteCodeInstruction for InstrIXor {
 
 pub struct InstrLXor {}
 impl ByteCodeInstruction for InstrLXor {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
-        sf.push(Rc::new(JavaObject::LONG(nb2 ^ nb1)));
+        sf.push_long(nb2 ^ nb1);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lxor"); }
@@ -946,16 +906,11 @@ impl ByteCodeInstruction for InstrLXor {
 
 pub struct InstrIInc { idx: u8, count: i8 }
 impl ByteCodeInstruction for InstrIInc {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let variable = sf.get_variable(self.idx as usize);
-
-        let nb = match &*variable {
-            JavaObject::INTEGER(int) => *int,
-            _ => panic!("iinc expects variable {} to contain an integer", self.idx)
-        };
-
-        sf.set_variable(self.idx as usize, &Rc::new(JavaObject::INTEGER(nb + self.count as i32)));
-
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        sf.variable_to_stack(self.idx as usize);
+        let nb = sf.pop_int();
+        sf.push_int(nb + self.count as i32);
+        sf.stack_to_variable(self.idx as usize);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iinc {} {}", self.idx, self.count); }
@@ -963,9 +918,9 @@ impl ByteCodeInstruction for InstrIInc {
 
 pub struct InstrI2L {}
 impl ByteCodeInstruction for InstrI2L {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_int();
-        sf.push(Rc::new(JavaObject::LONG(nb as i64)));
+        sf.push_long(nb as i64);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      i2l"); }
@@ -973,9 +928,9 @@ impl ByteCodeInstruction for InstrI2L {
 
 pub struct InstrI2F {}
 impl ByteCodeInstruction for InstrI2F {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_int();
-        sf.push(Rc::new(JavaObject::FLOAT(nb as f32)));
+        sf.push_float(nb as f32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      i2f"); }
@@ -983,9 +938,9 @@ impl ByteCodeInstruction for InstrI2F {
 
 pub struct InstrI2D {}
 impl ByteCodeInstruction for InstrI2D {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_int();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb as f64)));
+        sf.push_double(nb as f64);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      i2d"); }
@@ -993,9 +948,9 @@ impl ByteCodeInstruction for InstrI2D {
 
 pub struct InstrL2I {}
 impl ByteCodeInstruction for InstrL2I {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_long();
-        sf.push(Rc::new(JavaObject::INTEGER(nb as i32)));
+        sf.push_int(nb as i32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      l2i"); }
@@ -1003,9 +958,9 @@ impl ByteCodeInstruction for InstrL2I {
 
 pub struct InstrL2F {}
 impl ByteCodeInstruction for InstrL2F {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_long();
-        sf.push(Rc::new(JavaObject::FLOAT(nb as f32)));
+        sf.push_float(nb as f32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      l2f"); }
@@ -1013,9 +968,9 @@ impl ByteCodeInstruction for InstrL2F {
 
 pub struct InstrL2D {}
 impl ByteCodeInstruction for InstrL2D {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_long();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb as f64)));
+        sf.push_double(nb as f64);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      l2d"); }
@@ -1023,9 +978,9 @@ impl ByteCodeInstruction for InstrL2D {
 
 pub struct InstrF2I {}
 impl ByteCodeInstruction for InstrF2I {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_float();
-        sf.push(Rc::new(JavaObject::INTEGER(nb as i32)));
+        sf.push_int(nb as i32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      f2i"); }
@@ -1033,9 +988,9 @@ impl ByteCodeInstruction for InstrF2I {
 
 pub struct InstrF2L {}
 impl ByteCodeInstruction for InstrF2L {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_float();
-        sf.push(Rc::new(JavaObject::LONG(nb as i64)));
+        sf.push_long(nb as i64);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      f2l"); }
@@ -1043,9 +998,9 @@ impl ByteCodeInstruction for InstrF2L {
 
 pub struct InstrF2D {}
 impl ByteCodeInstruction for InstrF2D {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_float();
-        sf.push(Rc::new(JavaObject::DOUBLE(nb as f64)));
+        sf.push_double(nb as f64);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      f2d"); }
@@ -1053,9 +1008,9 @@ impl ByteCodeInstruction for InstrF2D {
 
 pub struct InstrD2I {}
 impl ByteCodeInstruction for InstrD2I {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_double();
-        sf.push(Rc::new(JavaObject::INTEGER(nb as i32)));
+        sf.push_int(nb as i32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      d2i"); }
@@ -1063,9 +1018,9 @@ impl ByteCodeInstruction for InstrD2I {
 
 pub struct InstrD2L {}
 impl ByteCodeInstruction for InstrD2L {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_double();
-        sf.push(Rc::new(JavaObject::LONG(nb as i64)));
+        sf.push_long(nb as i64);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      d2l"); }
@@ -1075,9 +1030,9 @@ impl ByteCodeInstruction for InstrD2L {
 
 pub struct InstrD2F {}
 impl ByteCodeInstruction for InstrD2F {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb = sf.pop_double();
-        sf.push(Rc::new(JavaObject::FLOAT(nb as f32)));
+        sf.push_float(nb as f32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      d2f"); }
@@ -1085,7 +1040,7 @@ impl ByteCodeInstruction for InstrD2F {
 
 pub struct InstrLCmp {}
 impl ByteCodeInstruction for InstrLCmp {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb2 = sf.pop_long();
         let nb1 = sf.pop_long();
         let result: i32;
@@ -1097,7 +1052,7 @@ impl ByteCodeInstruction for InstrLCmp {
             result = -1;
         }
 
-        sf.push(Rc::new(JavaObject::INTEGER(result)));
+        sf.push_int(result);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lcmp"); }
@@ -1105,7 +1060,7 @@ impl ByteCodeInstruction for InstrLCmp {
 
 pub struct InstrFCmpl {}
 impl ByteCodeInstruction for InstrFCmpl {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb2 = sf.pop_float();
         let nb1 = sf.pop_float();
         let mut result: i32 = 0;
@@ -1117,7 +1072,7 @@ impl ByteCodeInstruction for InstrFCmpl {
             result = -1;
         }
 
-        sf.push(Rc::new(JavaObject::INTEGER(result)));
+        sf.push_int(result);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fcmpl"); }
@@ -1125,7 +1080,7 @@ impl ByteCodeInstruction for InstrFCmpl {
 
 pub struct InstrFCmpg {}
 impl ByteCodeInstruction for InstrFCmpg {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb2 = sf.pop_float();
         let nb1 = sf.pop_float();
         let mut result: i32 = 0;
@@ -1137,7 +1092,7 @@ impl ByteCodeInstruction for InstrFCmpg {
             result = -1;
         }
 
-        sf.push(Rc::new(JavaObject::INTEGER(result)));
+        sf.push_int(result);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fcmpg"); }
@@ -1145,7 +1100,7 @@ impl ByteCodeInstruction for InstrFCmpg {
 
 pub struct InstrDCmpl {}
 impl ByteCodeInstruction for InstrDCmpl {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb2 = sf.pop_double();
         let nb1 = sf.pop_double();
         let mut result: i32 = 0;
@@ -1157,7 +1112,7 @@ impl ByteCodeInstruction for InstrDCmpl {
             result = -1;
         }
 
-        sf.push(Rc::new(JavaObject::INTEGER(result)));
+        sf.push_int(result);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dcmpl"); }
@@ -1165,7 +1120,7 @@ impl ByteCodeInstruction for InstrDCmpl {
 
 pub struct InstrDCmpg {}
 impl ByteCodeInstruction for InstrDCmpg {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let nb2 = sf.pop_double();
         let nb1 = sf.pop_double();
         let mut result: i32 = 0;
@@ -1177,7 +1132,7 @@ impl ByteCodeInstruction for InstrDCmpg {
             result = -1;
         }
 
-        sf.push(Rc::new(JavaObject::INTEGER(result)));
+        sf.push_int(result);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dcmpg"); }
@@ -1185,21 +1140,11 @@ impl ByteCodeInstruction for InstrDCmpg {
 
 pub struct InstrIfeq { branch: usize }
 impl ByteCodeInstruction for InstrIfeq {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        match &*arg {
-            JavaObject::INTEGER(int) => {
-                if *int == 0 {
-                    return InstrNextAction::GOTO(self.branch);
-                }
-            },
-            JavaObject::BOOLEAN(value) => {
-                if !*value {
-                    return InstrNextAction::GOTO(self.branch);
-                }
-            }
-            _ => panic!("ifeq expects an integer in the stack")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let arg = sf.pop_int();
+        if arg == 0 {
+            return InstrNextAction::GOTO(self.branch);
+        }
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ifeq {}", self.branch); }
@@ -1213,16 +1158,11 @@ impl ByteCodeInstruction for InstrIfeq {
 
 pub struct InstrIfne { branch: usize }
 impl ByteCodeInstruction for InstrIfne {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        match &*arg {
-            JavaObject::INTEGER(int) => {
-                if *int != 0 {
-                    return InstrNextAction::GOTO(self.branch);
-                }
-            },
-            _ => panic!("ifne expects an integer in the stack")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let arg = sf.pop_int();
+        if arg != 0 {
+            return InstrNextAction::GOTO(self.branch);
+        }
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ifne {}", self.branch); }
@@ -1236,16 +1176,11 @@ impl ByteCodeInstruction for InstrIfne {
 
 pub struct InstrIflt { branch: usize }
 impl ByteCodeInstruction for InstrIflt {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        match &*arg {
-            JavaObject::INTEGER(int) => {
-                if *int < 0 {
-                    return InstrNextAction::GOTO(self.branch);
-                }
-            },
-            _ => panic!("iflt expects an integer in the stack")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let arg = sf.pop_int();
+        if arg < 0 {
+            return InstrNextAction::GOTO(self.branch);
+        }
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iflt {}", self.branch); }
@@ -1259,16 +1194,11 @@ impl ByteCodeInstruction for InstrIflt {
 
 pub struct InstrIfge { branch: usize }
 impl ByteCodeInstruction for InstrIfge {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        match &*arg {
-            JavaObject::INTEGER(int) => {
-                if *int >= 0 {
-                    return InstrNextAction::GOTO(self.branch);
-                }
-            },
-            _ => panic!("ifge expects an integer in the stack")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let arg = sf.pop_int();
+        if arg >= 0 {
+            return InstrNextAction::GOTO(self.branch);
+        }
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ifge {}", self.branch); }
@@ -1282,16 +1212,11 @@ impl ByteCodeInstruction for InstrIfge {
 
 pub struct InstrIfgt { branch: usize }
 impl ByteCodeInstruction for InstrIfgt {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        match &*arg {
-            JavaObject::INTEGER(int) => {
-                if *int > 0 {
-                    return InstrNextAction::GOTO(self.branch);
-                }
-            },
-            _ => panic!("ifgt expects an integer in the stack")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let arg = sf.pop_int();
+        if arg > 0 {
+            return InstrNextAction::GOTO(self.branch);
+        }
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ifgt {}", self.branch); }
@@ -1305,16 +1230,11 @@ impl ByteCodeInstruction for InstrIfgt {
 
 pub struct InstrIfle { branch: usize }
 impl ByteCodeInstruction for InstrIfle {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        match &*arg {
-            JavaObject::INTEGER(int) => {
-                if *int <= 0 {
-                    return InstrNextAction::GOTO(self.branch);
-                }
-            },
-            _ => panic!("ifle expects an integer in the stack")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let arg = sf.pop_int();
+        if arg <= 0 {
+            return InstrNextAction::GOTO(self.branch);
+        }
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      ifle {}", self.branch); }
@@ -1330,7 +1250,7 @@ impl ByteCodeInstruction for InstrIfle {
 
 pub struct InstrIfICmpEq { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpEq {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 == value2 {
@@ -1349,7 +1269,7 @@ impl ByteCodeInstruction for InstrIfICmpEq {
 
 pub struct InstrIfICmpNe { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpNe {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 != value2 {
@@ -1368,7 +1288,7 @@ impl ByteCodeInstruction for InstrIfICmpNe {
 
 pub struct InstrIfICmpLt { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpLt {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 < value2 {
@@ -1387,7 +1307,7 @@ impl ByteCodeInstruction for InstrIfICmpLt {
 
 pub struct InstrIfICmpGe { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpGe {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 >= value2 {
@@ -1406,7 +1326,7 @@ impl ByteCodeInstruction for InstrIfICmpGe {
 
 pub struct InstrIfICmpGt { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpGt {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 > value2 {
@@ -1425,7 +1345,7 @@ impl ByteCodeInstruction for InstrIfICmpGt {
 
 pub struct InstrIfICmpLe { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpLe {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 <= value2 {
@@ -1444,7 +1364,7 @@ impl ByteCodeInstruction for InstrIfICmpLe {
 
 pub struct InstrGoto { branch: usize }
 impl ByteCodeInstruction for InstrGoto {
-    fn execute(&self, _class: &BytecodeClass, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         return InstrNextAction::GOTO(self.branch);
     }
     fn print(&self) { println!("      goto {}", self.branch); }
@@ -1458,12 +1378,8 @@ impl ByteCodeInstruction for InstrGoto {
 
 pub struct InstrTableSwitch { default: usize, low: usize, table: Vec<usize> }
 impl ByteCodeInstruction for InstrTableSwitch {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        let idx = match &*arg {
-            JavaObject::INTEGER(nb) => *nb,
-            _ => panic!("tableswitch expects an integer as argument")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let idx = sf.pop_int();
         
         let offset = (idx - self.low as i32) as usize;
         match self.table.get(offset) {
@@ -1501,12 +1417,8 @@ impl ByteCodeInstruction for InstrTableSwitch {
 
 pub struct InstrLookupSwitch { default: usize, lookup: HashMap<i32, usize> }
 impl ByteCodeInstruction for InstrLookupSwitch {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let arg = sf.pop();
-        let idx = match &*arg {
-            JavaObject::INTEGER(nb) => *nb,
-            _ => panic!("tableswitch expects an integer as argument")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let idx = sf.pop_int();
         
         match self.lookup.get(&idx) {
             Some(goto) => return InstrNextAction::GOTO(*goto),
@@ -1541,7 +1453,7 @@ impl ByteCodeInstruction for InstrLookupSwitch {
 
 pub struct InstrIReturn {}
 impl ByteCodeInstruction for InstrIReturn {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1550,7 +1462,7 @@ impl ByteCodeInstruction for InstrIReturn {
 
 pub struct InstrLReturn {}
 impl ByteCodeInstruction for InstrLReturn {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1559,7 +1471,7 @@ impl ByteCodeInstruction for InstrLReturn {
 
 pub struct InstrFReturn {}
 impl ByteCodeInstruction for InstrFReturn {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1568,7 +1480,7 @@ impl ByteCodeInstruction for InstrFReturn {
 
 pub struct InstrDReturn {}
 impl ByteCodeInstruction for InstrDReturn {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1579,7 +1491,7 @@ impl ByteCodeInstruction for InstrDReturn {
 
 pub struct InstrAReturn {}
 impl ByteCodeInstruction for InstrAReturn {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1588,7 +1500,7 @@ impl ByteCodeInstruction for InstrAReturn {
 
 pub struct InstrReturn {}
 impl ByteCodeInstruction for InstrReturn {
-    fn execute(&self, _class: &BytecodeClass, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      return"); }
@@ -1596,18 +1508,18 @@ impl ByteCodeInstruction for InstrReturn {
 
 pub struct InstrGetStatic { class_name: String, field_name: String, type_desc: String }
 impl ByteCodeInstruction for InstrGetStatic {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
         let class = classes.get_class(&self.class_name);
-        sf.push(class.get_static_object(&self.field_name));
+        sf.push(class.borrow().get_static_object(&self.field_name));
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      getstatic {}.{} -> {}", self.class_name, self.field_name, self.type_desc); }
 }
 pub struct InstrPutStatic { class_name: String, field_name: String, type_desc: String }
 impl ByteCodeInstruction for InstrPutStatic {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
         let class = classes.get_class(&self.class_name);
-        class.put_static_object(&self.field_name, sf.pop());
+        class.borrow().put_static_object(&self.field_name, sf.pop());
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      putstatic {}.{} <- {}", self.class_name, self.field_name, self.type_desc); }
@@ -1615,23 +1527,10 @@ impl ByteCodeInstruction for InstrPutStatic {
 
 pub struct InstrGetField { class_name: String, field_name: String }
 impl ByteCodeInstruction for InstrGetField {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let instance = sf.pop();
-        let object = match &*instance {
-            JavaObject::INSTANCE(class, fields) => {
-                if !self.class_name.eq(class) {
-                    sf.print_stack();
-                    sf.print_variables();
-                    panic!("Mismatched class name. Expected {}, got {}", self.class_name, class);
-                }
-                fields.borrow()
-            },
-            _ => panic!("No instance")
-        };
-        match object.get(&self.field_name) {
-            Some(field) => sf.push(field.clone()),
-            _ => sf.push(Rc::new(JavaObject::NULL()))
-        };
+        let field = instance.borrow().get_field(&self.field_name);
+        sf.push(field);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      getfield {}.{}", self.class_name, self.field_name); }
@@ -1639,19 +1538,11 @@ impl ByteCodeInstruction for InstrGetField {
 
 pub struct InstrPutField { class_name: String, field_name: String }
 impl ByteCodeInstruction for InstrPutField {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+//        unsafe { if DEBUG >= 1 { sf.print_stack(); } };
         let value = sf.pop();
         let instance = sf.pop();
-        let mut object = match &*instance {
-            JavaObject::INSTANCE(class, fields) => {
-                if !self.class_name.eq(class) {
-                    panic!("Mismatched class name. Expected {}, got {}", self.class_name, class);
-                }
-                fields.borrow_mut()
-            },
-            _ => panic!("No instance")
-        };
-        object.insert(self.field_name.clone(), value.clone());
+        instance.borrow_mut().set_field(&self.field_name, value);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      putfield {}.{}", self.class_name, self.field_name); }
@@ -1659,72 +1550,92 @@ impl ByteCodeInstruction for InstrPutField {
 
 pub struct InstrInvokeVirtual { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeVirtual {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+        let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+        for _ in 0..self.nb_args {
+            args.push(sf.pop().clone());
+        }
+        let this = sf.pop();
         let class = classes.get_class(&self.class_name);
-        class.execute_method(sf, classes, &self.method_name, self.nb_args);
+        class.borrow().execute_method(sf, classes, &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokevirtual {}.{}{}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokevirtual {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
 }
 
 pub struct InstrInvokeSpecial { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeSpecial {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+        unsafe { if DEBUG >= 1 { sf.print_stack(); }}
+
+        let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+        for _ in 0..self.nb_args {
+            args.push(sf.pop().clone());
+        }
+        let this = sf.pop();
         let class = classes.get_class(&self.class_name);
-        class.execute_method(sf, classes, &self.method_name, self.nb_args);
+        class.borrow().execute_method(sf, classes, &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokespecial {}.{}{}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokespecial {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
 }
 
 pub struct InstrInvokeStatic { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeStatic {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
         let class = classes.get_class(&self.class_name);
-        class.execute_static_method(sf, classes, &self.method_name, self.nb_args);
+        class.borrow().execute_static_method(sf, classes, &self.method_name, self.nb_args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokestatic {}.{}{}", self.class_name, self.method_name, self.type_desc); }
+    fn print(&self) { println!("      invokestatic {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
 }
 
 pub struct InstrInvokeInterface { class_name: String, method_name: String, type_desc: String, count: usize, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeInterface {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+
+        let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+        for _ in 0..self.nb_args {
+            args.push(sf.pop().clone());
+        }
+        let this = sf.pop();
         let class = classes.get_class(&self.class_name);
-        class.execute_method(sf, classes, &self.method_name, self.nb_args);
+        class.borrow_mut().execute_method(sf, classes, &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      invokeinterface {}.{}{} {}", self.class_name, self.method_name, self.type_desc, self.count); }
+    fn print(&self) { println!("      invokeinterface {}.{}{}(<{} arguments>) {}", self.class_name, self.method_name, self.type_desc, self.nb_args, self.count); }
 }
 
 pub struct InstrInvokeDynamic {
     method_name: String,
     method_type: String,
     method_nb_args: usize,
-    bootstrap_method_idx: usize
+    bootstrap_method_idx: usize,
+    class_name: String
 }
 impl ByteCodeInstruction for InstrInvokeDynamic {
-    fn execute(&self, class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
-
-        let bootstrap = match class.bootstrap_methods.get(self.bootstrap_method_idx) {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+        let class = classes.get_class(&self.class_name);
+        let the_class = class.borrow();
+        let bootstrap = match the_class.get_bootstrap_method(self.bootstrap_method_idx) {
             Some(bootstrap) => bootstrap,
             _ => panic!("Unknown bootstrap method {}", self.bootstrap_method_idx)
         };
 
-        sf.push(Rc::new(JavaObject::STRING(class.name.clone())));
-        sf.push(Rc::new(JavaObject::STRING(self.method_name.clone())));
-        sf.push(Rc::new(JavaObject::STRING(self.method_type.clone())));
+        sf.push_string(self.class_name.clone());
+        sf.push_string(self.method_name.clone());
+        sf.push_string(self.method_type.clone());
 
         let mut type_desc = String::from("(III");
 
         for arg in bootstrap.arguments.iter() {
-            sf.push(Rc::new(JavaObject::INTEGER(*arg as i32)));
+            sf.push_int(*arg as i32);
             type_desc.push_str("I");
         }
         type_desc.push_str(")V");
 
         let class = classes.get_class(&bootstrap.class_name);
-        class.execute_static_method(sf, classes, &bootstrap.method_name, self.method_nb_args);
+        class.borrow_mut().execute_static_method(sf, classes, &bootstrap.method_name, self.method_nb_args);
 
         return InstrNextAction::NEXT;
     }
@@ -1733,33 +1644,37 @@ impl ByteCodeInstruction for InstrInvokeDynamic {
 
 pub struct InstrNew { class_name: String }
 impl ByteCodeInstruction for InstrNew {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
         let class = classes.get_class(&self.class_name);
-        sf.push(Rc::new(class.new()));
+        sf.push(class.borrow().new());
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      new {}", self.class_name); }
 }
 
-pub struct InstrNewArray { }
+pub struct InstrNewArray { atype: u8 }
 impl ByteCodeInstruction for InstrNewArray {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let array: Vec<Rc<JavaObject>> = Vec::new();
-        sf.push(Rc::new(JavaObject::ARRAY(RefCell::new(array))));
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let count = sf.pop_int();
+        let mut array: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
+        for _i in 0..count {
+            array.push(Rc::new(RefCell::new(NativeIntegerInstance::new(0))));
+        }
+        sf.push_array(Rc::new(RefCell::new(array)));
         return InstrNextAction::NEXT;
     }
-    fn print(&self) { println!("      newarray"); }
+    fn print(&self) { println!("      newarray {}", self.atype); }
 }
 
 pub struct InstrANewArray { class_name: String }
 impl ByteCodeInstruction for InstrANewArray {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
         let count = sf.pop_int();
-        let mut array: Vec<Rc<JavaObject>> = Vec::with_capacity(count as usize);
+        let mut array: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
         for _i in 0..count {
-            array.push(Rc::new(JavaObject::INTEGER(0)));
+            array.push(Rc::new(RefCell::new(NativeIntegerInstance::new(0))));
         }
-        sf.push(Rc::new(JavaObject::ARRAY(RefCell::new(array))));
+        sf.push_array(Rc::new(RefCell::new(array)));
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      anewarray {}", self.class_name); }
@@ -1767,12 +1682,9 @@ impl ByteCodeInstruction for InstrANewArray {
 
 pub struct InstrArrayLength { }
 impl ByteCodeInstruction for InstrArrayLength {
-    fn execute(&self, _class: &BytecodeClass, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-        let array = sf.pop();
-        match &*array {
-            JavaObject::ARRAY(arr) => sf.push(Rc::new(JavaObject::INTEGER(arr.borrow().len() as i32))),
-            _ => panic!("arraylength expects an array as argument")
-        };
+    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+        let array = sf.pop_array();
+        sf.push_int(array.borrow().len() as i32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      arraylength"); }
@@ -1798,6 +1710,7 @@ impl ByteCode {
         constants_long: &HashMap<usize, ConstantLong>,
         constants_float: &HashMap<usize, ConstantFloat>,
         constants_double: &HashMap<usize, ConstantDouble>,
+        class_name: &String,
         debug:u8) -> ByteCode {
 
         let mut instructions: Vec<Box<dyn ByteCodeInstruction>> = Vec::new();
@@ -1834,13 +1747,13 @@ impl ByteCode {
                 0x12 => {
                     let idx = data.get_u8() as usize;
                     match constants_string_ref.get(&idx) {
-                        Some(string) => Box::new(InstrLdc { value: Rc::new(JavaObject::STRING(string.value.clone())) }),
+                        Some(string) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeStringInstance::new(string.value.clone()))) }),
                         _ => match constants_float.get(&idx) {
-                            Some(float) => Box::new(InstrLdc { value: Rc::new(JavaObject::FLOAT(float.value)) }),
+                            Some(float) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeFloatInstance::new(float.value))) }),
                             _ => match constants_integer.get(&idx) {
-                                Some(int) => Box::new(InstrLdc { value: Rc::new(JavaObject::INTEGER(int.value)) }),
+                                Some(int) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeIntegerInstance::new(int.value))) }),
                                 _ =>  match constants_class.get(&idx) {
-                                    Some(class) => Box::new(InstrLdc { value: Rc::new(JavaObject::CLASS(class.name.clone())) }),
+                                    Some(class) => Box::new(InstrLdc { value: Rc::new(RefCell::new(JavaClassInstance::new(class.name.clone()))) }),
                                     _ => panic!("ldc: unknown index {}", idx)
                                 }
                             }
@@ -1850,11 +1763,11 @@ impl ByteCode {
                 0x13 => {
                     let idx = data.get_u16size();
                     match constants_string_ref.get(&idx) {
-                        Some(string) => Box::new(InstrLdc { value: Rc::new(JavaObject::STRING(string.value.clone())) }),
+                        Some(string) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeStringInstance::new(string.value.clone()))) }),
                         _ => match constants_float.get(&idx) {
-                            Some(float) => Box::new(InstrLdc { value: Rc::new(JavaObject::FLOAT(float.value)) }),
+                            Some(float) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeFloatInstance::new(float.value))) }),
                             _ => match constants_integer.get(&idx) {
-                                Some(int) => Box::new(InstrLdc { value: Rc::new(JavaObject::INTEGER(int.value)) }),
+                                Some(int) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeIntegerInstance::new(int.value))) }),
                                 _ =>  panic!("ldc_w: unknown index {}", idx)
                             }
                         }
@@ -1863,9 +1776,9 @@ impl ByteCode {
                 0x14 => {
                     let idx = data.get_u16size();
                     match constants_double.get(&idx) {
-                        Some(double) => Box::new(InstrLdc { value: Rc::new(JavaObject::DOUBLE(double.value)) }),
+                        Some(double) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeDoubleInstance::new(double.value))) }),
                         _ => match constants_long.get(&idx) {
-                            Some(long) => Box::new(InstrLdc { value: Rc::new(JavaObject::LONG(long.value)) }),
+                            Some(long) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeLongInstance::new(long.value))) }),
                             _ => panic!("ldc2_w: unknown index {}", idx)
                         }
                     }
@@ -2128,6 +2041,7 @@ impl ByteCode {
                     match constants_dynamic.get(&type_name) {
                         Some(dynamic) => Box::new(InstrInvokeDynamic {
                             bootstrap_method_idx: dynamic.idx_bootstrap_method,
+                            class_name: class_name.clone(),
                             method_name: dynamic.method_name.clone(),
                             method_type: dynamic.type_name.clone(),
                             method_nb_args: get_nb_arguments(&dynamic.type_name)
@@ -2141,7 +2055,7 @@ impl ByteCode {
                     }),
                     _ => panic!("Unknown class")
                 },
-                0xbc => Box::new(InstrNewArray {}),
+                0xbc => Box::new(InstrNewArray { atype: data.get_u8() }),
                 0xbd => match constants_class.get(&data.get_u16size()) {
                     Some(class) => Box::new(InstrANewArray {
                         class_name: class.name.clone()

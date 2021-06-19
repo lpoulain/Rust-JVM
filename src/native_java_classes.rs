@@ -1,9 +1,9 @@
 use std::rc::Rc;
-use std::collections::HashMap;
 use std::cell::RefCell;
 
+use crate::CLASSES;
 use crate::StackFrame;
-use crate::jvm::JavaObject;
+use crate::jvm::JavaInstance;
 use crate::jvm::Classes;
 use crate::java_class::JavaClass;
 use crate::streams::NativeStreamClass;
@@ -11,25 +11,48 @@ use crate::streams::NativeLambdaMetafactoryClass;
 use crate::streams::NativeStreamInstance;
 
 pub fn register_native_classes(classes: &mut Classes) {
-    classes.add_class(Rc::new(NativeObjectClass {}));
-    classes.add_class(Rc::new(NativePrintStreamClass {}));
-    classes.add_class(Rc::new(NativeSystemClass {}));
-    classes.add_class(Rc::new(NativeStringClass {}));
-    classes.add_class(Rc::new(NativeIntegerClass {}));
-    classes.add_class(Rc::new(NativeArraysClass {}));
-    classes.add_class(Rc::new(NativeListClass {}));
-    classes.add_class(Rc::new(NativeArrayListClass {}));
-    classes.add_class(Rc::new(NativeStreamClass {}));
-    classes.add_class(Rc::new(NativeMathClass {}));
-    classes.add_class(Rc::new(NativeLambdaMetafactoryClass {}));
-    classes.add_class(Rc::new(NativeEnumClass {}));
+    unsafe {
+        CLASSES.add(Rc::new(RefCell::new(NativeObjectClass {})));
+    }
+
+    classes.add_class(Rc::new(RefCell::new(NativeObjectClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativePrintStreamClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeSystemClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeStringClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeIntegerClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeArraysClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeListClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeArrayListClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeStreamClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeMathClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeLambdaMetafactoryClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeEnumClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeNoSuchFieldErrorClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeMethodHandlesLookupClass {})));
+    classes.add_class(Rc::new(RefCell::new(NativeMethodHandlesClass {})));
 }
 
 //////////
 
+pub struct NativeObjectInstance {}
+impl JavaInstance for NativeObjectInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Object".to_string();
+    }
+    fn execute_method(&mut self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "<init>" => { },
+            _ => panic!("Class {} does not support method {}", self.get_class_name(), method_name)
+        };
+    }
+}
+
 pub struct NativeObjectClass { }
 
 impl JavaClass for NativeObjectClass {
+    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
+        Rc::new(RefCell::new(NativeObjectInstance {}))
+    }
     fn get_name(&self) -> String {
         return "java/lang/Object".to_string();
     }
@@ -38,17 +61,43 @@ impl JavaClass for NativeObjectClass {
         println!("Native Object class");
     }
 
-    fn execute_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
-                sf.pop();
             },
             _ => panic!("Class {} does not support method {}", self.get_name(), method_name)
+        };
+    }
+
+    fn execute_static_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+        match &method_name[..] {
+            "clinit" => {},
+            _ => panic!("Class {} does not support static method {}", self.get_name(), method_name)
         };
     }
 }
 
 /////////////////// java.io.PrintStream
+
+pub struct NativePrintStreamInstance {}
+impl JavaInstance for NativePrintStreamInstance {
+    fn get_class_name(&self) -> String {
+        return "Stream".to_string();
+    }
+    fn execute_method(&mut self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "println" => {
+                let object = args.get(0).unwrap();
+                println!("{}", (**object).borrow().get_string());
+            },
+            "print" => {
+                let object = args.get(0).unwrap();
+                print!("{}", (**object).borrow().get_string());
+            },
+            _ => panic!("Native class {} does not have method {}", self.get_class_name(), method_name)
+        }
+    }
+} 
 
 pub struct NativePrintStreamClass { }
 
@@ -61,25 +110,17 @@ impl JavaClass for NativePrintStreamClass {
         println!("Native Stream class");
     }
 
-    fn execute_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "println" => {
-                let string = sf.pop();
-                sf.pop();
+                let string = args.get(0).unwrap().borrow().get_string();
 
-                match &*string {
-                    JavaObject::STRING(value) => println!("{}", value),
-                    _ => println!("???")
-                };
+                println!("{}", string);
             },
             "print" => {
-                let string = sf.pop();
-                sf.pop();
+                let string = args.get(0).unwrap().borrow().get_string();
 
-                match &*string {
-                    JavaObject::STRING(value) => print!("{}", value),
-                    _ => print!("???")
-                };
+                print!("{}", string);
             },
             _ => panic!("Native class {} does not have method {}", self.get_name(), method_name)
         }
@@ -99,9 +140,9 @@ impl JavaClass for NativeSystemClass {
         println!("Native System class");
     }
 
-    fn get_static_object(&self, field_name: &String) -> Rc<JavaObject> {
+    fn get_static_object(&self, field_name: &String) -> Rc<RefCell<dyn JavaInstance>> {
         if field_name.eq("out") {
-            return Rc::new(JavaObject::INSTANCE(self.get_name().clone(), RefCell::new(HashMap::new())));
+            return Rc::new(RefCell::new(NativePrintStreamInstance {}));
         }
             
         panic!("Native class {} does not have static field [{}]", self.get_name(), field_name);
@@ -111,6 +152,26 @@ impl JavaClass for NativeSystemClass {
 
 /////////////////// java.lang.Integer
  
+pub struct NativeIntegerInstance { value: i32 }
+
+impl NativeIntegerInstance {
+    pub fn new(value: i32) -> NativeIntegerInstance {
+        NativeIntegerInstance { value }
+    }
+}
+
+impl JavaInstance for NativeIntegerInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Integer".to_string();
+    }
+    fn get_int(&self) -> i32 {
+        return self.value;
+    }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
 pub struct NativeIntegerClass { }
 
 impl JavaClass for NativeIntegerClass {
@@ -123,21 +184,168 @@ impl JavaClass for NativeIntegerClass {
     }
 
     fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
-        if method_name.eq("parseInt") || method_name.eq("valueOf") {
-            let int_value = match &*(sf.pop()) {
-                JavaObject::STRING(st) => Rc::new(JavaObject::INTEGER(st.parse::<i32>().unwrap())),
-                JavaObject::INTEGER(int) => Rc::new(JavaObject::INTEGER(*int)),
-                _ => panic!("Integer.parseInt() not supported for this type")
-            };
-            sf.push(int_value);
-            return;
-        }
+        match &method_name[..] {
+            "parseInt" => {
+                let string = sf.pop_string();
+                sf.push_int(string.parse::<i32>().unwrap());
+            },
+            "valueOf" => {
+                let int = sf.pop_int();
+                sf.push_int(int);
+            },
+            _ => panic!("Native class {} does not have static method [{}]", self.get_name(), method_name)
+        };
+    }
+}
 
-        panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
+/////////////////// java.lang.Long
+
+pub struct NativeLongInstance { value: i64 }
+
+impl NativeLongInstance {
+    pub fn new(value: i64) -> NativeLongInstance {
+        NativeLongInstance { value }
+    }
+}
+
+impl JavaInstance for NativeLongInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Long".to_string();
+    }
+    fn get_long(&self) -> i64 {
+        return self.value;
+    }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
+/////////////////// java.lang.Float
+
+pub struct NativeFloatInstance { value: f32 }
+impl JavaInstance for NativeFloatInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Float".to_string();
+    }
+    fn get_float(&self) -> f32 {
+        return self.value;
+    }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
+impl NativeFloatInstance {
+    pub fn new(value: f32) -> NativeFloatInstance {
+        NativeFloatInstance { value }
+    }
+}
+
+/////////////////// java.lang.Double
+
+pub struct NativeDoubleInstance { value: f64 }
+impl JavaInstance for NativeDoubleInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Double".to_string();
+    }
+    fn get_double(&self) -> f64 {
+        return self.value;
+    }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
+impl NativeDoubleInstance {
+    pub fn new(value: f64) -> NativeDoubleInstance {
+        NativeDoubleInstance { value }
+    }
+}
+
+/////////////////// java.lang.Boolean
+
+pub struct NativeBooleanInstance { value: bool }
+impl JavaInstance for NativeBooleanInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Boolean".to_string();
+    }
+    fn get_bool(&self) -> bool {
+        return self.value;
+    }
+    fn get_int(&self) -> i32 {
+        if self.value {
+            return 1;
+        }
+        return 0;
+    }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
+impl NativeBooleanInstance {
+    pub fn new(value: bool) -> NativeBooleanInstance {
+        NativeBooleanInstance { value }
     }
 }
 
 /////////////////// java.lang.String
+
+pub struct NativeStringInstance { value: String }
+impl JavaInstance for NativeStringInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/String".to_string();
+    }
+    fn get_string(&self) -> String {
+        return self.value.clone();
+    }
+    fn print(&self) {
+        print!("\"{}\"", self.value);
+    }
+    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "<init>" => {},
+            "startsWith" => {
+                let arg = args.get(0).unwrap().borrow().get_string();
+                let this = self.get_string();
+
+                sf.push_bool(this.starts_with(&arg));
+            },
+            "toLowerCase" => {
+                let this = self.get_string();
+                sf.push_string(this.to_lowercase());
+            },
+            "hashCode" => {
+                let this = self.get_string();
+                let mut n = this.len() as u32;
+    
+                let mut hash: i32 = 0;
+    
+                let str = this.as_bytes();
+                let thirty_one: i32 = 31;
+    
+                for c in str {
+                    n -= 1;
+                    hash += (*c as i32) * i32::pow(thirty_one, n);
+                }
+                sf.push_int(hash);
+            },
+            "equals" => {
+                let arg = args.get(0).unwrap().borrow().get_string();
+                let this = self.get_string();
+
+                sf.push_bool(this.eq(&arg));
+            }
+            _ => panic!("String.{}() not implemented yet", method_name)
+        };        
+    }
+}
+
+impl NativeStringInstance {
+    pub fn new(value: String) -> NativeStringInstance {
+        NativeStringInstance { value }
+    }
+}
 
 pub struct NativeStringClass { }
 
@@ -150,127 +358,44 @@ impl JavaClass for NativeStringClass {
         println!("Native Integer class");
     }
 
-    fn execute_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
-        match &method_name[..] {
-            "startsWith" => {
-                let arg = sf.pop();
-                let this = sf.pop();
-
-                let comparison = match &*arg {
-                    JavaObject::STRING(str) => str,
-                    _ => panic!("String.startsWith() requires a string as a parameter")
-                };
-
-                let the_string = match &*this {
-                    JavaObject::STRING(str) => str,
-                    _ => panic!("String.startWith() requires 'this' to be a string")
-                };
-                sf.push(Rc::new(JavaObject::BOOLEAN(the_string.starts_with(comparison))));
-            },
-            "toLowerCase" => {
-                let this = sf.pop();
-                let the_string = match &*this {
-                    JavaObject::STRING(str) => str,
-                    _ => panic!("String.toLowerCase() requires 'this' to be a string")
-                };
-                sf.push(Rc::new(JavaObject::STRING(the_string.to_lowercase())));
-            },
-            "hashCode" => {
-                let this = sf.pop();
-                let the_string = match &*this {
-                    JavaObject::STRING(str) => str,
-                    _ => panic!("String.toLowerCase() requires 'this' to be a string")
-                };
-                let mut n = the_string.len() as u32;
-    
-                let mut hash: i32 = 0;
-    
-                let str = the_string.as_bytes();
-                let thirty_one: i32 = 31;
-    
-                for c in str {
-                    n -= 1;
-                    hash += (*c as i32) * i32::pow(thirty_one, n);
-                }
-                sf.push(Rc::new(JavaObject::INTEGER(hash)));
-            },
-            "equals" => {
-                let arg = sf.pop();
-                let this = sf.pop();
-
-                let string1 = match &*this {
-                    JavaObject::STRING(str) => str,
-                    _ => panic!("String.toLowerCase() requires 'this' to be a string")
-                };
-
-                let string2 = match &*arg {
-                    JavaObject::STRING(str) => str,
-                    _ => panic!("String.toLowerCase() requires 'this' to be a string")
-                };
-                sf.push(Rc::new(JavaObject::BOOLEAN(string1.eq(string2))));
-            }
-            _ => panic!("String.{}() not implemented yet", method_name)
-        };
-    }
-
     fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
         if method_name.eq("format") {
-            let array_arg = sf.pop();
-            let string_arg = sf.pop();
-
-            let array = match &*array_arg {
-                JavaObject::ARRAY(array) => array.borrow(),
-                _ => panic!("String.format() expects an array in the stack")
-            };
+            let array = sf.pop_array();
+            let string = sf.pop_string();
 
             let mut output = String::new();
             let mut special = false;
             let mut array_idx: usize = 0;
 
-            match &*string_arg {
-                JavaObject::STRING(value) => {
-                    for c in value.chars() {
-                        if special {
-                            match c {
-                                'd' => {
-                                    match array.get(array_idx) {
-                                        Some(object) => match &**object {
-                                            JavaObject::INTEGER(int) => {
-                                                output.push_str(&int.to_string());
-                                            },
-                                            _ => panic!("String.format() expects an integer for argument {}", array_idx + 1)
-                                        },
-                                        _ => panic!("String.format() does not have enought arguments")
-                                    };
-                                },
-                                's' => {
-                                    match array.get(array_idx) {
-                                        Some(object) => match &**object {
-                                            JavaObject::STRING(str) => {
-                                                output.push_str(&str.clone());
-                                            },
-                                            _ => panic!("String.format() expects a string for argument {}", array_idx + 1)
-                                        },
-                                        _ => panic!("String.format() does not have enought arguments")
-                                    };
-                                },
-                                _ => panic!("String.format() does not support %{}", c)
+            for c in string.chars() {
+                if special {
+                    match c {
+                        'd' => {
+                            match array.borrow().get(array_idx) {
+                                Some(object) => output.push_str(&(**object).borrow().get_int().to_string()),
+                                _ => panic!("String.format() does not have enought arguments")
                             };
-                            special = false;
-                            array_idx += 1;
-                        } else {
-                            match c {
-                                '%' => { special = true; },
-                                _ => { output.push(c); }
+                        },
+                        's' => {
+                            match array.borrow_mut().get(array_idx) {
+                                Some(object) => output.push_str(&(**object).borrow().get_string().clone()),
+                                _ => panic!("String.format() does not have enought arguments")
                             };
-                        }
-                    }
+                        },
+                        _ => panic!("String.format() does not support %{}", c)
+                    };
+                    special = false;
+                    array_idx += 1;
+                } else {
+                    match c {
+                        '%' => { special = true; },
+                        _ => { output.push(c); }
+                    };
+                }
+            }
         
-                },
-                _ => panic!("String.format() expects a string as parameter")
-            };
 
-            sf.push(Rc::new(JavaObject::STRING(output)));
+            sf.push_string(output);
             return;
         }
 
@@ -279,6 +404,36 @@ impl JavaClass for NativeStringClass {
 }
 
 /////////////////// java.util.Arrays
+
+pub struct NativeArrayInstance { pub values: Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> }
+impl JavaInstance for NativeArrayInstance {
+    fn get_class_name(&self) -> String {
+        return "java/util/Arrays".to_string();
+    }
+
+    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "clone" => {
+                let array: Vec<Rc<RefCell<dyn JavaInstance>>> = self.values.borrow().clone();
+                sf.push_array(Rc::new(RefCell::new(array)));
+            },
+            _ => panic!("Native instance {} does not support method {}", self.get_class_name(), method_name)
+        };
+    }
+
+    fn get_array(&self) -> Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> {
+        return self.values.clone();
+    }
+
+    fn print(&self) {
+        print!("[");
+        for value in self.values.borrow().iter() {
+            value.borrow().print();
+            print!(", ")
+        }
+        print!("]");
+    }
+}
 
 pub struct NativeArraysClass { }
 
@@ -293,19 +448,14 @@ impl JavaClass for NativeArraysClass {
 
     fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
         if method_name.eq("asList") {
-            let array_arg = sf.pop();
+            let array = sf.pop_array();
 
-            let array = match &*array_arg {
-                JavaObject::ARRAY(array) => array.borrow(),
-                _ => panic!("Arrays.asList() expects an array in the stack")
-            };
-
-            let mut list: Vec<Rc<JavaObject>> = Vec::new();
-            for elt in array.iter() {
-                list.push(elt.clone());
+            let mut list: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+            for elt in array.borrow().iter() {
+                list.push((*elt).clone());
             }
 
-            sf.push(Rc::new(JavaObject::InstanceList(RefCell::new(NativeArrayListInstance { content: RefCell::new(list) }))));
+            sf.push(Rc::new(RefCell::new(NativeArrayListInstance { content: Rc::new(RefCell::new(list)) })));
             return;
         }
 
@@ -316,15 +466,56 @@ impl JavaClass for NativeArraysClass {
 /////////////////// java.util.ArrayList
 
 pub struct NativeArrayListInstance {
-    content: RefCell<Vec<Rc<JavaObject>>>
+    content: Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>>
+}
+impl JavaInstance for NativeArrayListInstance {
+    fn get_class_name(&self) -> String {
+        return "java/util/ArrayList".to_string();
+    }
+    fn get_array(&self) -> Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> {
+        return self.content.clone();
+    }
+
+    fn supports_interface(&self, interface_name: &String) -> bool {
+        match &interface_name[..] {
+            "java/util/List" => true,
+            _ => false
+        }
+    }
+    fn print(&self) {
+        let elements = self.content.borrow();
+        print!("<{} instance [", self.get_class_name());
+        for element in elements.iter() {
+            element.borrow().print();
+            print!(", ");
+        }
+        print!("]>");
+    }
+    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "<init>" => {
+                return;
+            },
+            "stream" => {
+                let list = self.get_array();
+                sf.push(Rc::new(RefCell::new(NativeStreamInstance::new(list))));
+            },
+            "add" => {
+                let value= args.get(0).unwrap();
+                self.content.borrow_mut().push(value.clone());
+
+                sf.push_bool(true);
+            },
+            _ => panic!("Native class {} does not have method [{}]", self.get_class_name(), method_name)
+        };
+    }
 }
 
 pub struct NativeArrayListClass { }
 
 impl JavaClass for NativeArrayListClass {
-
-    fn new(&self) -> JavaObject {
-        JavaObject::InstanceList(RefCell::new(NativeArrayListInstance { content: RefCell::new(Vec::new()) }))
+    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
+        Rc::new(RefCell::new(NativeArrayListInstance { content: Rc::new(RefCell::new(Vec::new())) }))
     }
 
     fn get_name(&self) -> String {
@@ -334,17 +525,34 @@ impl JavaClass for NativeArrayListClass {
     fn print(&self) {
         println!("Native ArrayList class");
     }
-
-    fn execute_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
-        if method_name.eq("<init>") {
-            sf.pop();
-            return;
-        }
-        panic!("Native class {} does not have method [{}]", self.get_name(), method_name);
-    }
 }
 
 /////////////////// java.util.List
+
+struct NativeListInstance {
+
+}
+impl JavaInstance for NativeListInstance {
+    fn get_class_name(&self) -> String {
+        return "java/util/List".to_string();
+    }
+    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "stream" => {
+                let list = sf.pop_array();
+                sf.push(Rc::new(RefCell::new(NativeStreamInstance::new(list))));
+            },
+            "add" => {
+                let value= sf.pop();
+                let list = sf.pop_array();
+                list.borrow_mut().push(value);
+
+                sf.push_bool(true);
+            }
+            _ => panic!("Native class {} does not have method [{}]", self.get_class_name(), method_name)
+        };
+    }
+}
 
 pub struct NativeListClass { }
 
@@ -355,36 +563,6 @@ impl JavaClass for NativeListClass {
 
     fn print(&self) {
         println!("Native List class");
-    }
-
-    fn execute_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
-        match &method_name[..] {
-            "stream" => {
-                let list = sf.pop();
-
-                let object: Vec<Rc<JavaObject>>;
-                match &*list {
-                    JavaObject::InstanceList(obj) => object = (&obj).borrow().content.borrow().clone(),
-                    _ => panic!("List.stream() expects a List in the stack")
-                };
-
-                sf.push(Rc::new(JavaObject::InstanceStream(RefCell::new(NativeStreamInstance::new(Rc::new(object) )))));
-            },
-            "add" => {
-                let value= sf.pop();
-                let list = sf.pop();
-
-                match &*list {
-                    JavaObject::InstanceList(obj) => {
-                        obj.borrow_mut().content.borrow_mut().push(value.clone());
-                    },
-                    _ => panic!("List.add() expects a List as its first argument")
-                };
-
-                sf.push(Rc::new(JavaObject::BOOLEAN(true)));
-            }
-            _ => panic!("Native class {} does not have method [{}]", self.get_name(), method_name)
-        }
     }
 }
 
@@ -404,20 +582,12 @@ impl JavaClass for NativeMathClass {
     fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
         match &method_name[..] {
             "sqrt" => {
-                let arg = sf.pop();
-                let nb = match &*arg {
-                    JavaObject::DOUBLE(nb) => nb,
-                    _ => panic!("Math.sqrt() expects a double as an argument")
-                };
-                sf.push(Rc::new(JavaObject::DOUBLE(nb.sqrt())));
+                let nb = sf.pop_double();
+                sf.push_double(nb.sqrt());
             },
             "log" => {
-                let arg = sf.pop();
-                let nb = match &*arg {
-                    JavaObject::DOUBLE(nb) => nb,
-                    _ => panic!("Math.log() expects a double as an argument")
-                };
-                sf.push(Rc::new(JavaObject::DOUBLE(nb.ln())));
+                let nb = sf.pop_double();
+                sf.push_double(nb.ln());
             }
             _ => panic!("Native class {} does not have static method [{}]", self.get_name(), method_name)
         };
@@ -425,9 +595,33 @@ impl JavaClass for NativeMathClass {
 }
 
 /////////////////// java.lang.Enum
+struct NativeEnumInstance { name: String, ordinal: i32 }
+impl JavaInstance for NativeEnumInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Enum".to_string();
+    }
+
+    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "<init>" => {
+                self.name = args.get(1).unwrap().borrow().get_string();
+                self.ordinal = args.get(0).unwrap().borrow().get_int();
+            },
+            "ordinal" => {
+                sf.push_int(self.ordinal);
+            },
+            _ => panic!("Native class {} does not have method [{}]", self.get_class_name(), method_name)
+        };
+    }
+}
+
 struct NativeEnumClass {}
 
 impl JavaClass for NativeEnumClass {
+    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
+        Rc::new(RefCell::new(NativeEnumInstance { ordinal: 0, name: "".to_string() }))
+    }
+
     fn get_name(&self) -> String {
         return "java/lang/Enum".to_string();
     }
@@ -435,18 +629,46 @@ impl JavaClass for NativeEnumClass {
     fn print(&self) {
         println!("Native Enum class");
     }
+}
 
-    fn execute_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
-        match &method_name[..] {
-            "ordinal" => {
-                let arg = sf.pop();
-                let nb = match &*arg {
-                    JavaObject::DOUBLE(nb) => nb,
-                    _ => panic!("Math.sqrt() expects a double as an argument")
-                };
-                sf.push(Rc::new(JavaObject::DOUBLE(nb.sqrt())));
-            },
-            _ => panic!("Native class {} does not have method [{}]", self.get_name(), method_name)
-        };
+/////////////////// java.lang.NoSuchFieldError
+
+struct NativeNoSuchFieldErrorClass {}
+
+impl JavaClass for NativeNoSuchFieldErrorClass {
+    fn get_name(&self) -> String {
+        return "java/lang/NoSuchFieldError".to_string();
+    }
+
+    fn print(&self) {
+        println!("Native NoSuchFieldError class");
+    }
+}
+
+/////////////////// java.lang.invoke.MethodHandles$Lookup
+
+struct NativeMethodHandlesLookupClass {}
+
+impl JavaClass for NativeMethodHandlesLookupClass {
+    fn get_name(&self) -> String {
+        return "java/lang/invoke/MethodHandles$Lookup".to_string();
+    }
+
+    fn print(&self) {
+        println!("Native MethodHandles$Lookup class");
+    }
+}
+
+/////////////////// java.lang.invoke.MethodHandles
+
+struct NativeMethodHandlesClass {}
+
+impl JavaClass for NativeMethodHandlesClass {
+    fn get_name(&self) -> String {
+        return "java/lang/invoke/MethodHandles".to_string();
+    }
+
+    fn print(&self) {
+        println!("Native MethodHandles class");
     }
 }
