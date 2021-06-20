@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::DEBUG;
+use crate::{DEBUG, get_debug};
 use crate::bytecode_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble };
 use crate::bytecode_class::ConstantString;
 use crate::bytecode_class::ConstantStringRef;
@@ -1710,8 +1710,7 @@ impl ByteCode {
         constants_long: &HashMap<usize, ConstantLong>,
         constants_float: &HashMap<usize, ConstantFloat>,
         constants_double: &HashMap<usize, ConstantDouble>,
-        class_name: &String,
-        debug:u8) -> ByteCode {
+        class_name: &String) -> ByteCode {
 
         let mut instructions: Vec<Box<dyn ByteCodeInstruction>> = Vec::new();
         data.rewind();
@@ -2079,7 +2078,7 @@ impl ByteCode {
                 _ => panic!("Unknown opcode {:#02x}", opcode)
             };
 
-            if debug >= 2 { instr.print(); }
+            if get_debug() >= 2 { instr.print(); }
             instructions.push(instr);
 
             instr_idx += 1;

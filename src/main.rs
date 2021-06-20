@@ -32,8 +32,8 @@ impl Classes2 {
         self.classes.as_mut().unwrap().insert(key, value);
     }
 
-    fn add_bytecode(&mut self, name: String, debug: u8) {
-        self.classes.as_mut().unwrap().insert(name.clone(), Rc::new(RefCell::new(BytecodeClass::parse(&name, debug))));
+    fn add_bytecode(&mut self, name: String) {
+        self.classes.as_mut().unwrap().insert(name.clone(), Rc::new(RefCell::new(BytecodeClass::parse(&name))));
     }
 
     fn get(&self, key: &String) -> Rc<RefCell<dyn JavaClass>> {
@@ -47,6 +47,8 @@ impl Classes2 {
 // An (unfinished) attempt to have the classes available as a global variable
 static mut CLASSES: Classes2 = Classes2 { classes: None };
 static mut DEBUG: u8 = 0;
+
+pub fn get_debug() -> u8 { unsafe { DEBUG } }
 
 fn main() {
     // Parses arguments
@@ -91,7 +93,7 @@ fn main() {
 
     while classes_to_load.len() > 0 {
         for class_name in classes_to_load.clone().iter() {
-            let bytecode_class = BytecodeClass::parse(&String::from(class_name), debug);
+            let bytecode_class = BytecodeClass::parse(&String::from(class_name));
             let java_class: Rc<RefCell<dyn 'static+JavaClass>> = Rc::new(RefCell::new(bytecode_class));
             classes.add_class(java_class.clone());
             unsafe { CLASSES.add(java_class.clone()); }

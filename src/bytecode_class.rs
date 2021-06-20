@@ -6,6 +6,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::CLASSES;
 use crate::bytecode::InstrNextAction;
+use crate::get_debug;
 use crate::java_class::JavaClass;
 use crate::jvm::Classes;
 use crate::jvm::StackFrame;
@@ -28,8 +29,7 @@ pub struct BytecodeClass {
     pub bootstrap_methods: Vec<AttributeBootstrapMethod>,
     static_fields: Rc<RefCell<HashMap<String, Rc<RefCell<dyn JavaInstance>>>>>,
     static_fields_desc: HashMap<String, String>,
-    has_static_init: bool,
-    debug: u8
+    has_static_init: bool
 }
 
 impl JavaClass for BytecodeClass {
@@ -109,7 +109,7 @@ impl JavaClass for BytecodeClass {
 
     fn execute_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         if self.methods.contains_key(method_name) {
-            if self.debug >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
+            if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
 
             let var = Rc::new(RefCell::new(NativeObjectInstance {}));
             let mut variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
@@ -133,7 +133,7 @@ impl JavaClass for BytecodeClass {
             }
         } else {
             let superclass = classes.get_class(&self.superclass_name);
-            if self.debug >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, args.len()); }
+            if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, args.len()); }
 
             let parent = this.borrow().get_parent();
             match parent {
@@ -146,7 +146,7 @@ impl JavaClass for BytecodeClass {
 
     fn execute_static_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, nb_args: usize) {
         if self.methods.contains_key(method_name) {
-            if self.debug >= 1 { println!("Execute static method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
+            if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
 
             let var = Rc::new(RefCell::new(NativeObjectInstance {}));
             let mut variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
@@ -166,7 +166,7 @@ impl JavaClass for BytecodeClass {
             }
         } else {
             let superclass = classes.get_class(&self.superclass_name);
-            if self.debug >= 1 { println!("Execute static method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, nb_args); }
+            if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, nb_args); }
 
             superclass.borrow().execute_static_method(sf, classes, method_name, nb_args);
         }
@@ -182,9 +182,9 @@ impl JavaClass for BytecodeClass {
 }
 
 impl BytecodeClass {
-    pub fn parse (name: &String, debug: u8) -> BytecodeClass {
+    pub fn parse (name: &String) -> BytecodeClass {
         let mut data = Blob::new(&(name.to_owned() + &String::from(".class")));
-        if debug >= 3 { data.print(); }
+        if get_debug() >= 3 { data.print(); }
         data.skip(8);
 
         let constant_pool_count: usize = data.get_u16size();
@@ -213,73 +213,73 @@ impl BytecodeClass {
                 // CONSTANT_Utf8
                 1 => {
                     let constant_string = ConstantString::new(&mut data);
-                    if debug >= 2 { constant_string.print(); }
+                    if get_debug() >= 2 { constant_string.print(); }
                     constants_string.insert(constant_idx, constant_string);
                 },
                 // CONSTANT_Integer
                 3 => {
                     let constant_integer = ConstantInteger::new(&mut data);
-                    if debug >= 2 { constant_integer.print(); }
+                    if get_debug() >= 2 { constant_integer.print(); }
                     constants_integer.insert(constant_idx, constant_integer);
                 },
                 // CONSTANT_Float
                 4 => {
                     let constant_float = ConstantFloat::new(&mut data);
-                    if debug >= 2 { constant_float.print(); }
+                    if get_debug() >= 2 { constant_float.print(); }
                     constants_float.insert(constant_idx, constant_float);
                 },
                 // CONSTANT_Long
                 5 => {
                     let constant_long = ConstantLong::new(&mut data);
-                    if debug >= 2 { constant_long.print(); }
+                    if get_debug() >= 2 { constant_long.print(); }
                     constants_long.insert(constant_idx, constant_long);
                 },
                 // CONSTANT_Double
                 6 => {
                     let constant_double = ConstantDouble::new(&mut data);
-                    if debug >= 2 { constant_double.print(); }
+                    if get_debug() >= 2 { constant_double.print(); }
                     constants_double.insert(constant_idx, constant_double);
                 },
                 // CONSTANT_Class
                 7 => {
                     let constant_class = ConstantClass::new(&mut data);
-                    if debug >= 2 { constant_class.print(); }
+                    if get_debug() >= 2 { constant_class.print(); }
                     constants_class.insert(constant_idx, constant_class);
                 },
                 // CONSTANT_String
                 8 => {
                     let constant_string_ref = ConstantStringRef::new(&mut data);
-                    if debug >= 2 { constant_string_ref.print(); }
+                    if get_debug() >= 2 { constant_string_ref.print(); }
                     constants_string_ref.insert(constant_idx, constant_string_ref);
                 },
                 // CONSTANT_Fieldref
                 9 => {
                     let constant_field = ConstantField::new(&mut data);
-                    if debug >= 2 { constant_field.print(); }
+                    if get_debug() >= 2 { constant_field.print(); }
                     constants_field.insert(constant_idx, constant_field);
                 },
                 // CONSTANT_Methodref
                 10 => {
                     let constant_method = ConstantMethod::new(&mut data);
-                    if debug >= 2 { constant_method.print(); }
+                    if get_debug() >= 2 { constant_method.print(); }
                     constants_method.insert(constant_idx, constant_method);
                 },
                 // CONSTANT_InterfaceMethodref
                 11 => {
                     let constant_method = ConstantMethod::new(&mut data);
-                    if debug >= 2 { constant_method.print(); }
+                    if get_debug() >= 2 { constant_method.print(); }
                     constants_method.insert(constant_idx, constant_method);
                 }
                 // CONSTANT_NameAndType
                 12 => {
                     let constant_name_type = ConstantNameType::new(&mut data);
-                    if debug >= 2 { constant_name_type.print(); }
+                    if get_debug() >= 2 { constant_name_type.print(); }
                     constants_name_type.insert(constant_idx, constant_name_type);
                 },
                 // CONSTANT_MethodHandle
                 15 => {
                     let constant_method_handle = ConstantMethodHandle::new(&mut data);
-                    if debug >= 2 { constant_method_handle.print(); }
+                    if get_debug() >= 2 { constant_method_handle.print(); }
                     constants_method_handle.insert(constant_idx, constant_method_handle);
                 },
                 // CONSTANT_MethodType
@@ -290,7 +290,7 @@ impl BytecodeClass {
                 // CONSTANT_InvokeDynamic
                 18 => {
                     let constant_dynamic = ConstantInvokeDynamic::new(&mut data);
-                    if debug >= 2 { constant_dynamic.print(); }
+                    if get_debug() >= 2 { constant_dynamic.print(); }
                     constants_dynamic.insert(constant_idx, constant_dynamic);
                 },
                 _ => panic!("Unknown constant code {} ({:#02x}) at offset {:#x}", opcode, opcode, data.offset)
@@ -336,7 +336,7 @@ impl BytecodeClass {
             Some(class) => class,
             _ => panic!("Unknown class ID {}", class_idx)
         };
-        if debug >= 2 { println!("Class {}", constant_class.name); }
+        if get_debug() >= 2 { println!("Class {}", constant_class.name); }
 
         // super class
         let super_class_idx = data.get_u16size();
@@ -344,7 +344,7 @@ impl BytecodeClass {
             Some(class) => class.name.clone(),
             _ => panic!("Unknown class ID {}", super_class_idx)
         };
-        if debug >= 2 { println!("Super Class {}", superclass_name); }
+        if get_debug() >= 2 { println!("Super Class {}", superclass_name); }
 
         // interfaces_count
         let _interfaces_count = data.get_u16size();
@@ -354,7 +354,7 @@ impl BytecodeClass {
 
         // fields_count
         let fields_count = data.get_u16size();
-        if debug >= 2 { println!("Fields: {}", fields_count); }
+        if get_debug() >= 2 { println!("Fields: {}", fields_count); }
         for _ in 0..fields_count {
             let field_access_flag = data.get_u16size();
             let field_idx = data.get_u16size();
@@ -364,7 +364,7 @@ impl BytecodeClass {
             };
             let field_descriptor_idx = data.get_u16size();
             let stat = if (field_access_flag & 8) == 8 { "  STATIC" } else { "" };
-            if debug >= 2 { println!("Field [{}], type={}, access flag={} {}", field_name, field_descriptor_idx, field_access_flag, stat); }
+            if get_debug() >= 2 { println!("Field [{}], type={}, access flag={} {}", field_name, field_descriptor_idx, field_access_flag, stat); }
             if (field_access_flag & 8) == 8 {
                 match constants_string.get(&field_descriptor_idx) {
                     Some(string) => {
@@ -387,7 +387,7 @@ impl BytecodeClass {
                     Some(string) => string.value.clone(),
                     _ => panic!("Unknown string ID {}", attribute_name_idx)
                 };
-                if debug >= 2 { println!("    Field attribute {} (size: {})", attribute_name, attribute_size); }
+                if get_debug() >= 2 { println!("    Field attribute {} (size: {})", attribute_name, attribute_size); }
                 data.skip(attribute_size);
             }
         }
@@ -404,7 +404,7 @@ impl BytecodeClass {
                 Some(string) => string.value.clone(),
                 _ => panic!("Unknown string ID {}", method_idx)
             };
-            if debug >= 2 { println!("Method {}", method_name); }
+            if get_debug() >= 2 { println!("Method {}", method_name); }
             if method_name.eq("<clinit>") { has_static_init = true; }
 
             let descriptor_idx = data.get_u16size();
@@ -412,7 +412,7 @@ impl BytecodeClass {
                 Some(string) => string.value.clone(),
                 _ => panic!("Unknown string ID {}", descriptor_idx)
             };
-            if debug >= 2 { println!("  Descriptor {}", descriptor_name); }
+            if get_debug() >= 2 { println!("  Descriptor {}", descriptor_name); }
 
             let attributes_count = data.get_u16size();
             for _ in 0..attributes_count {
@@ -423,13 +423,13 @@ impl BytecodeClass {
                     Some(string) => string.value.clone(),
                     _ => panic!("Unknown string ID {}", attribute_name_idx)
                 };
-                if debug >= 2 { println!("    Method attribute {} (size: {})", attribute_name, attribute_size); }
+                if get_debug() >= 2 { println!("    Method attribute {} (size: {})", attribute_name, attribute_size); }
 
                 if attribute_name.eq("Code") {
                     data.skip(4);
                     let mut code = data.get_blob();
                     let code_size = code.data.len();
-                    if debug >= 2 {
+                    if get_debug() >= 2 {
                         print!("    Code: ");
                         for _attributes_count in 0..code_size {
                             print!(" {:02x}", code.get_u8());
@@ -440,7 +440,7 @@ impl BytecodeClass {
                     let bytecode = ByteCode::new(&mut code, &constants_class, &constants_string,
                         &constants_string_ref, &constants_method, &constants_field, &constants_name_type,
                         &constants_dynamic, &constants_integer, &constants_long, &constants_float, &constants_double,
-                        &constant_class.name, debug);
+                        &constant_class.name);
                     methods.insert(method_name.clone(), bytecode);
 
                     data.skip(attribute_size - 8 - code_size);
@@ -461,7 +461,7 @@ impl BytecodeClass {
                 Some(string) => string.value.clone(),
                 _ => panic!("Cannot find Constant String at index {}", attribute_idx)
             };
-            if debug >= 2 {
+            if get_debug() >= 2 {
                 println!("Class attribute name [{}], size [0x{:x}]", attribute_name, attribute_size);
             }
             if attribute_name.eq("BootstrapMethods") {
@@ -495,8 +495,7 @@ impl BytecodeClass {
             methods: Rc::new(methods),
             static_fields,
             static_fields_desc,
-            has_static_init,
-            debug
+            has_static_init
         }
     }
 
@@ -511,7 +510,7 @@ impl BytecodeClass {
         loop {
             match bytecode.instructions.get(instr_idx) {
                 Some(instr) => {
-                    if self.debug >= 1 {
+                    if get_debug() >= 1 {
                         print!("Execute {} ", instr_idx);
                         instr.print();
                     }
@@ -523,7 +522,7 @@ impl BytecodeClass {
                             instr_idx = idx;
                         }
                         InstrNextAction::RETURN => {
-                            if self.debug >= 1 { sf.print_stack(); }
+                            if get_debug() >= 1 { sf.print_stack(); }
                             return;
                         }
                     }
