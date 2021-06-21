@@ -1,15 +1,15 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use crate::get_class;
 use crate::jvm::JavaInstance;
 use crate::jvm::StackFrame;
-use crate::jvm::Classes;
 use crate::java_class::JavaClass;
 
 /////////////////// java.util.stream.Stream
 
 pub trait StreamFunction {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame, classes: &Classes) -> Option<Rc<RefCell<dyn JavaInstance>>>;
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>>;
     fn get_class_name(&self) -> String { return "".to_string(); }
     fn get_method_name(&self) -> String { return "".to_string(); }
     fn print(&self);
@@ -30,7 +30,7 @@ impl NativeStreamData {
 }
 
 impl StreamFunction for NativeStreamData {
-    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame, _classes: &Classes) -> Option<Rc<RefCell<dyn JavaInstance>>> {
+    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
         let object = match self.data.borrow().get(self.idx) {
             Some(obj) => Some(obj.clone()),
             _ => None
@@ -50,7 +50,7 @@ impl JavaInstance for NativeStreamInstance {
     fn get_class_name(&self) -> String {
         return "java/util/stream/Stream".to_string();
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, classes: &Classes, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "filter" | "map" => {
                 let stream_function = args.get(0).unwrap().borrow().get_stream_function();
@@ -64,13 +64,13 @@ impl JavaInstance for NativeStreamInstance {
                     Some(function) => &*function,
                     _ => panic!("Stream.{}(): missing function 0", method_name)
                 };
-                let class = classes.get_class(&consumer.borrow().get_class_name());
+                let class = get_class(&consumer.borrow().get_class_name());
 
                 loop {
-                    match current_function.borrow_mut().next_object(0, self, sf, &classes) {
+                    match current_function.borrow_mut().next_object(0, self, sf) {
                         Some(object) => {
                             sf.push(object.clone());
-                            class.borrow().execute_static_method(sf, classes, &consumer.borrow().get_method_name(), 1);
+                            class.borrow().execute_static_method(sf, &consumer.borrow().get_method_name(), 1);
                         },
                         None => break
                     }
@@ -117,7 +117,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
         println!("Native Stream class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
         if method_name.eq("metafactory") {
             let _arg3 = sf.pop();
             let arg2 = sf.pop_int();
@@ -126,7 +126,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
             let action = sf.pop_string();
             let class_name = sf.pop_string();
 
-            let class = classes.get_class(&class_name);
+            let class = get_class(&class_name);
             let the_class = class.borrow();
 
             let bootstrap_method = match the_class.get_method_handles().get(&(arg2 as usize)) {
@@ -201,18 +201,18 @@ impl Clone for NativePredicateInstance {
 pub struct NativePredicateClass { }
 
 impl StreamFunction for NativePredicateInstance {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame, classes: &Classes) -> Option<Rc<RefCell<dyn JavaInstance>>> {
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
         match stream.operations.get(function_idx + 1) {
             Some(function) => {
-                let class = classes.get_class(&self.class_name);
+                let class = get_class(&self.class_name);
 
                 loop {
-                    let object = (**function).borrow_mut().next_object(function_idx + 1, &stream, sf, classes);
+                    let object = (**function).borrow_mut().next_object(function_idx + 1, &stream, sf);
 
                     match object {
                         Some(obj) => {
                             sf.push(obj.clone());
-                            class.borrow().execute_static_method(sf, classes, &self.method_name, 1);
+                            class.borrow().execute_static_method(sf, &self.method_name, 1);
                             let is_predicate_valid = sf.pop_bool();
                             if is_predicate_valid {
                                 return Some(obj.clone());
@@ -264,17 +264,17 @@ impl Clone for NativeFunctionInstance {
 }
 
 impl StreamFunction for NativeFunctionInstance {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame, classes: &Classes) -> Option<Rc<RefCell<dyn JavaInstance>>> {
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
         match stream.operations.get(function_idx + 1) {
             Some(function) => {
-                let class = classes.get_class(&self.class_name);
+                let class = get_class(&self.class_name);
 
-                let object = function.borrow_mut().next_object(function_idx + 1, &stream, sf, classes);
+                let object = function.borrow_mut().next_object(function_idx + 1, &stream, sf);
 
                 match object {
                     Some(obj) => {
                         sf.push(obj);
-                        class.borrow().execute_static_method(sf, classes, &self.method_name, 1);
+                        class.borrow().execute_static_method(sf, &self.method_name, 1);
                         return Some(sf.pop());
                     },
                     None => return None
@@ -314,7 +314,7 @@ impl JavaInstance for NativeConsumerInstance {
 }
 
 impl StreamFunction for NativeConsumerInstance {
-    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame, _classes: &Classes) -> Option<Rc<RefCell<dyn JavaInstance>>> {
+    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
         return None;
     }
 

@@ -5,7 +5,6 @@ use crate::StackFrame;
 use crate::bytecode_class::AttributeBootstrapMethod;
 use crate::bytecode_class::ConstantMethodHandle;
 use crate::jvm::JavaInstance;
-use crate::jvm::Classes;
 use std::cell::RefCell;
 
 pub fn get_nb_arguments(type_desc: &String) -> usize {
@@ -51,11 +50,11 @@ pub trait JavaClass {
     fn new(&self) -> Rc<RefCell<dyn JavaInstance>> { panic!("Class {} cannot be instantiated", self.get_name()); }
     fn has_static_init(&self) -> bool { false }
     fn get_dependent_classes(&self) -> Vec<String> { Vec::new() }
-    fn init_static_fields(&mut self, _classes: &Classes) {}
+    fn init_static_fields(&mut self) {}
     fn get_bootstrap_method(&self, _idx: usize) -> Option<&AttributeBootstrapMethod> { return None; }
     fn get_name(&self) -> String;
     fn print(&self) { }
-    fn execute_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         if sf.debug >= 1 { println!("Execute native method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
 
         let mut object = this.clone();
@@ -69,9 +68,9 @@ pub trait JavaClass {
             object = new_obj.clone();
             this_class = object.borrow().get_class_name();
         }
-        object.borrow_mut().execute_method(sf, classes, method_name, object.clone(), args);
+        object.borrow_mut().execute_method(sf, method_name, object.clone(), args);
     }
-    fn execute_static_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, _sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
         panic!("Class {} does not support static method {}", self.get_name(), method_name);
     }
     fn get_static_object(&self, field_name: &String) -> Rc<RefCell<dyn JavaInstance>> {

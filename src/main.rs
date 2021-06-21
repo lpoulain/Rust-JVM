@@ -20,35 +20,68 @@ use crate::java_class::JavaClass;
 use crate::bytecode_class::BytecodeClass;
 use crate::native_java_classes::register_native_classes;
 use crate::jvm::StackFrame;
-use crate::jvm::Classes;
 
-struct Classes2 {
+struct Classes {
     classes: Option<HashMap<String, Rc<RefCell<dyn JavaClass>>>>
 }
 
-impl Classes2 {
+impl Classes {
     fn add(&mut self, value: Rc<RefCell<dyn JavaClass>>) {
         let key = value.borrow().get_name();
         self.classes.as_mut().unwrap().insert(key, value);
     }
 
-    fn add_bytecode(&mut self, name: String) {
-        self.classes.as_mut().unwrap().insert(name.clone(), Rc::new(RefCell::new(BytecodeClass::parse(&name))));
+    fn has(&self, class_name: &String) -> bool {
+        self.classes.as_ref().unwrap().contains_key(class_name)
     }
 
-    fn get(&self, key: &String) -> Rc<RefCell<dyn JavaClass>> {
-        match &self.classes {
-            Some(map) => map.get(key).unwrap().clone(),
-            _ => panic!("Class repository not initialized (key {} not found)", key)
+    fn all(&self) -> Vec<Rc<RefCell<dyn JavaClass>>> {
+        let mut classes: Vec<Rc<RefCell<dyn JavaClass>>> = Vec::new();
+        
+        let map = match self.classes.as_ref() {
+            Some(m) => m,
+            _ => return Vec::new()
+        };
+
+        for class in map.values() {
+            classes.push(class.clone());
         }
+
+        classes
+    }
+
+    fn add_bytecode(&mut self, name: String) -> Rc<RefCell<dyn JavaClass>> {
+        let class = Rc::new(RefCell::new(BytecodeClass::parse(&name)));
+        self.classes.as_mut().unwrap().insert(name.clone(), class.clone());
+        class
     }
 }
 
 // An (unfinished) attempt to have the classes available as a global variable
-static mut CLASSES: Classes2 = Classes2 { classes: None };
+static mut CLASSES: Classes = Classes { classes: None };
 static mut DEBUG: u8 = 0;
 
 pub fn get_debug() -> u8 { unsafe { DEBUG } }
+pub fn get_class(class_name: &String) -> Rc<RefCell<dyn JavaClass>> {
+    unsafe {
+        match &CLASSES.classes {
+            Some(map) => {
+                let arrays_name = "java/util/Arrays".to_string();
+                let class_name_to_find = if class_name.starts_with("[") { &arrays_name } else { class_name };
+                match map.get(class_name_to_find) {
+                    Some(class) => class.clone(),
+                    _ => panic!("Class {} not found", class_name_to_find)
+                }
+            },
+            _ => panic!("Class repository not initialized (key {} not found)", class_name)
+        }
+    }
+}
+pub fn get_classes() -> Vec<Rc<RefCell<dyn JavaClass>>> {
+    unsafe {
+        CLASSES.all()
+    }
+}
 
 fn main() {
     // Parses arguments
@@ -81,11 +114,10 @@ fn main() {
     };
 
     // Setup the class repository
-    let mut classes = Classes::new();
     unsafe {
         CLASSES.classes = Some(HashMap::new());
     }
-    register_native_classes(&mut classes);
+    register_native_classes();
 
     // Load the class and all the dependencies
     let mut classes_to_load: HashSet<String> = HashSet::new();
@@ -93,13 +125,10 @@ fn main() {
 
     while classes_to_load.len() > 0 {
         for class_name in classes_to_load.clone().iter() {
-            let bytecode_class = BytecodeClass::parse(&String::from(class_name));
-            let java_class: Rc<RefCell<dyn 'static+JavaClass>> = Rc::new(RefCell::new(bytecode_class));
-            classes.add_class(java_class.clone());
-            unsafe { CLASSES.add(java_class.clone()); }
+            let java_class = unsafe { CLASSES.add_bytecode(class_name.to_string()) };
 
             for dependent_class_name in java_class.borrow().get_dependent_classes().iter() {
-                if !dependent_class_name.starts_with("[") && !classes.has_class(&dependent_class_name) {
+                if !dependent_class_name.starts_with("[") && unsafe { !CLASSES.has(&dependent_class_name) } {
                     classes_to_load.insert(dependent_class_name.clone());
                 }
             }
@@ -121,30 +150,40 @@ fn main() {
 
     let mut sf = StackFrame::new(variables, debug);
     sf.push_array(Rc::new(RefCell::new(java_args)));
-    
-    let mut classes_to_init: Vec<Rc<RefCell<dyn JavaClass>>> = Vec::new();
 
-    for (_, class) in classes.classes.iter_mut() {
-        classes_to_init.push(class.clone());
-        unsafe {
-            CLASSES.add(class.clone());
+    let mut classes = get_classes();
+    let mut main_classes: Vec<Rc<RefCell<dyn JavaClass>>> = Vec::new();
+    let mut hidden_classes: Vec<Rc<RefCell<dyn JavaClass>>> = Vec::new();
+
+    for class in classes.iter() {
+        let is_hidden = class.borrow().get_name().contains("$");
+        if is_hidden {
+            hidden_classes.push(class.clone());
+        } else {
+            main_classes.push(class.clone());
         }
     }
 
-    for class in classes_to_init.iter_mut() {
-        class.borrow_mut().init_static_fields(&classes);
+    for class in classes.iter_mut() {
+        class.borrow_mut().init_static_fields();
     }
 
-    for class in classes_to_init.iter_mut() {
+    for class in main_classes.iter_mut() {
         if class.borrow().has_static_init() {
-            class.borrow().execute_static_method(&mut sf, &classes, &"<clinit>".to_string(), 0);
+            class.borrow().execute_static_method(&mut sf, &"<clinit>".to_string(), 0);
         }
     }
 
-    let java_class = classes.get_class(&String::from(class_name));
+    for class in hidden_classes.iter_mut() {
+        if class.borrow().has_static_init() {
+            class.borrow().execute_static_method(&mut sf, &"<clinit>".to_string(), 0);
+        }
+    }
+
+    let java_class = get_class(&String::from(class_name));
     if debug >= 2 { java_class.borrow().print(); }
 
-    java_class.borrow().execute_static_method(&mut sf, &classes, &"main".to_string(), 1);
+    java_class.borrow().execute_static_method(&mut sf, &"main".to_string(), 1);
     if debug >= 1 { sf.print_stack(); }
     if debug >= 2 { sf.print_variables(); }
 }

@@ -4,32 +4,29 @@ use std::cell::RefCell;
 use crate::CLASSES;
 use crate::StackFrame;
 use crate::jvm::JavaInstance;
-use crate::jvm::Classes;
 use crate::java_class::JavaClass;
 use crate::streams::NativeStreamClass;
 use crate::streams::NativeLambdaMetafactoryClass;
 use crate::streams::NativeStreamInstance;
 
-pub fn register_native_classes(classes: &mut Classes) {
+pub fn register_native_classes() {
     unsafe {
         CLASSES.add(Rc::new(RefCell::new(NativeObjectClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativePrintStreamClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeSystemClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeStringClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeIntegerClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeArraysClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeListClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeArrayListClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeStreamClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeMathClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeLambdaMetafactoryClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeEnumClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeNoSuchFieldErrorClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeMethodHandlesLookupClass {})));
+        CLASSES.add(Rc::new(RefCell::new(NativeMethodHandlesClass {})));
     }
-
-    classes.add_class(Rc::new(RefCell::new(NativeObjectClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativePrintStreamClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeSystemClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeStringClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeIntegerClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeArraysClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeListClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeArrayListClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeStreamClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeMathClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeLambdaMetafactoryClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeEnumClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeNoSuchFieldErrorClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeMethodHandlesLookupClass {})));
-    classes.add_class(Rc::new(RefCell::new(NativeMethodHandlesClass {})));
 }
 
 //////////
@@ -39,7 +36,7 @@ impl JavaInstance for NativeObjectInstance {
     fn get_class_name(&self) -> String {
         return "java/lang/Object".to_string();
     }
-    fn execute_method(&mut self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => { },
             _ => panic!("Class {} does not support method {}", self.get_class_name(), method_name)
@@ -61,7 +58,7 @@ impl JavaClass for NativeObjectClass {
         println!("Native Object class");
     }
 
-    fn execute_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
             },
@@ -69,7 +66,7 @@ impl JavaClass for NativeObjectClass {
         };
     }
 
-    fn execute_static_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, _sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
         match &method_name[..] {
             "clinit" => {},
             _ => panic!("Class {} does not support static method {}", self.get_name(), method_name)
@@ -84,7 +81,7 @@ impl JavaInstance for NativePrintStreamInstance {
     fn get_class_name(&self) -> String {
         return "Stream".to_string();
     }
-    fn execute_method(&mut self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "println" => {
                 let object = args.get(0).unwrap();
@@ -110,7 +107,7 @@ impl JavaClass for NativePrintStreamClass {
         println!("Native Stream class");
     }
 
-    fn execute_method(&self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "println" => {
                 let string = args.get(0).unwrap().borrow().get_string();
@@ -183,7 +180,7 @@ impl JavaClass for NativeIntegerClass {
         println!("Native Integer class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
         match &method_name[..] {
             "parseInt" => {
                 let string = sf.pop_string();
@@ -302,7 +299,7 @@ impl JavaInstance for NativeStringInstance {
     fn print(&self) {
         print!("\"{}\"", self.value);
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {},
             "startsWith" => {
@@ -358,7 +355,7 @@ impl JavaClass for NativeStringClass {
         println!("Native Integer class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
         if method_name.eq("format") {
             let array = sf.pop_array();
             let string = sf.pop_string();
@@ -411,7 +408,7 @@ impl JavaInstance for NativeArrayInstance {
         return "java/util/Arrays".to_string();
     }
 
-    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "clone" => {
                 let array: Vec<Rc<RefCell<dyn JavaInstance>>> = self.values.borrow().clone();
@@ -446,7 +443,7 @@ impl JavaClass for NativeArraysClass {
         println!("Native Arrays class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
         if method_name.eq("asList") {
             let array = sf.pop_array();
 
@@ -491,7 +488,7 @@ impl JavaInstance for NativeArrayListInstance {
         }
         print!("]>");
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
                 return;
@@ -536,7 +533,7 @@ impl JavaInstance for NativeListInstance {
     fn get_class_name(&self) -> String {
         return "java/util/List".to_string();
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "stream" => {
                 let list = sf.pop_array();
@@ -579,7 +576,7 @@ impl JavaClass for NativeMathClass {
         println!("Native Math class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
         match &method_name[..] {
             "sqrt" => {
                 let nb = sf.pop_double();
@@ -601,7 +598,7 @@ impl JavaInstance for NativeEnumInstance {
         return "java/lang/Enum".to_string();
     }
 
-    fn execute_method(&mut self, sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
                 self.name = args.get(1).unwrap().borrow().get_string();

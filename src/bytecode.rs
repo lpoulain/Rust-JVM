@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::{DEBUG, get_debug};
+use crate::{get_class, get_debug};
 use crate::bytecode_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble };
 use crate::bytecode_class::ConstantString;
 use crate::bytecode_class::ConstantStringRef;
@@ -15,7 +15,6 @@ use crate::bytecode_class::Blob;
 use crate::java_class::JavaClassInstance;
 use crate::java_class::get_nb_arguments;
 use crate::jvm::JavaInstance;
-use crate::Classes;
 use crate::native_java_classes::NativeDoubleInstance;
 use crate::native_java_classes::NativeFloatInstance;
 use crate::native_java_classes::NativeIntegerInstance;
@@ -23,7 +22,7 @@ use crate::native_java_classes::NativeLongInstance;
 use crate::native_java_classes::NativeStringInstance;
 
 pub trait ByteCodeInstruction {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction;
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction;
     fn print(&self);
     fn set_branch(&mut self, _address_map: &HashMap<usize, usize>) {}
 }
@@ -39,7 +38,7 @@ pub enum InstrNextAction {
 
 pub struct InstrNop { }
 impl ByteCodeInstruction for InstrNop {
-    fn execute(&self, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _sf: &mut StackFrame) -> InstrNextAction {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      nop"); }
@@ -47,7 +46,7 @@ impl ByteCodeInstruction for InstrNop {
 
 pub struct InstrIConst { value: i32 }
 impl ByteCodeInstruction for InstrIConst {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_int(self.value);
         return InstrNextAction::NEXT;
     }
@@ -56,7 +55,7 @@ impl ByteCodeInstruction for InstrIConst {
 
 pub struct InstrLConst0 { }
 impl ByteCodeInstruction for InstrLConst0 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_long(0);
         return InstrNextAction::NEXT;
     }
@@ -65,7 +64,7 @@ impl ByteCodeInstruction for InstrLConst0 {
 
 pub struct InstrLConst1 { }
 impl ByteCodeInstruction for InstrLConst1 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_long(1);
         return InstrNextAction::NEXT;
     }
@@ -74,7 +73,7 @@ impl ByteCodeInstruction for InstrLConst1 {
 
 pub struct InstrFConst0 { }
 impl ByteCodeInstruction for InstrFConst0 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_float(0.0);
         return InstrNextAction::NEXT;
     }
@@ -83,7 +82,7 @@ impl ByteCodeInstruction for InstrFConst0 {
 
 pub struct InstrFConst1 { }
 impl ByteCodeInstruction for InstrFConst1 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_float(1.0);
         return InstrNextAction::NEXT;
     }
@@ -92,7 +91,7 @@ impl ByteCodeInstruction for InstrFConst1 {
 
 pub struct InstrFConst2 { }
 impl ByteCodeInstruction for InstrFConst2 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_float(2.0);
         return InstrNextAction::NEXT;
     }
@@ -101,7 +100,7 @@ impl ByteCodeInstruction for InstrFConst2 {
 
 pub struct InstrDConst0 { }
 impl ByteCodeInstruction for InstrDConst0 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_double(0.0);
         return InstrNextAction::NEXT;
     }
@@ -110,7 +109,7 @@ impl ByteCodeInstruction for InstrDConst0 {
 
 pub struct InstrDConst1 { }
 impl ByteCodeInstruction for InstrDConst1 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_double(1.0);
         return InstrNextAction::NEXT;
     }
@@ -121,7 +120,7 @@ impl ByteCodeInstruction for InstrDConst1 {
 
 pub struct InstrBiPush { value: u8 }
 impl ByteCodeInstruction for InstrBiPush {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_int(self.value as i32);
         return InstrNextAction::NEXT;
     }
@@ -130,7 +129,7 @@ impl ByteCodeInstruction for InstrBiPush {
 
 pub struct InstrILoad { variable: u8 }
 impl ByteCodeInstruction for InstrILoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -139,7 +138,7 @@ impl ByteCodeInstruction for InstrILoad {
 
 pub struct InstrLLoad { variable: u8 }
 impl ByteCodeInstruction for InstrLLoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -148,7 +147,7 @@ impl ByteCodeInstruction for InstrLLoad {
 
 pub struct InstrFLoad { variable: u8 }
 impl ByteCodeInstruction for InstrFLoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -157,7 +156,7 @@ impl ByteCodeInstruction for InstrFLoad {
 
 pub struct InstrDLoad { variable: u8 }
 impl ByteCodeInstruction for InstrDLoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -166,7 +165,7 @@ impl ByteCodeInstruction for InstrDLoad {
 
 pub struct InstrALoad { variable: u8 }
 impl ByteCodeInstruction for InstrALoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -175,7 +174,7 @@ impl ByteCodeInstruction for InstrALoad {
 
 pub struct InstrLdc { value: Rc<RefCell<dyn JavaInstance>> }
 impl ByteCodeInstruction for InstrLdc {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push(self.value.clone());
         return InstrNextAction::NEXT;
     }
@@ -188,7 +187,7 @@ impl ByteCodeInstruction for InstrLdc {
 
 pub struct InstrLdcF { value: f32 }
 impl ByteCodeInstruction for InstrLdcF {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push_float(self.value);
         return InstrNextAction::NEXT;
     }
@@ -197,7 +196,7 @@ impl ByteCodeInstruction for InstrLdcF {
 
 pub struct InstrILoadN { variable: u8 }
 impl ByteCodeInstruction for InstrILoadN {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -206,7 +205,7 @@ impl ByteCodeInstruction for InstrILoadN {
 
 pub struct InstrLLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrLLoadN {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -217,7 +216,7 @@ impl ByteCodeInstruction for InstrLLoadN {
 
 pub struct InstrFLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrFLoadN {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -226,7 +225,7 @@ impl ByteCodeInstruction for InstrFLoadN {
 
 pub struct InstrDLoadN { variable: u8 }
 impl ByteCodeInstruction for InstrDLoadN {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -235,7 +234,7 @@ impl ByteCodeInstruction for InstrDLoadN {
 
 pub struct InstrALoadN { variable: u8 }
 impl ByteCodeInstruction for InstrALoadN {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -244,7 +243,7 @@ impl ByteCodeInstruction for InstrALoadN {
 
 pub struct InstrIALoad {}
 impl ByteCodeInstruction for InstrIALoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
         let array = arg.borrow();
@@ -260,7 +259,7 @@ impl ByteCodeInstruction for InstrIALoad {
 
 pub struct InstrLALoad {}
 impl ByteCodeInstruction for InstrLALoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
         let array = arg.borrow();
@@ -278,7 +277,7 @@ impl ByteCodeInstruction for InstrLALoad {
 
 pub struct InstrFALoad {}
 impl ByteCodeInstruction for InstrFALoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
         let array = arg.borrow();
@@ -294,7 +293,7 @@ impl ByteCodeInstruction for InstrFALoad {
 
 pub struct InstrDALoad {}
 impl ByteCodeInstruction for InstrDALoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
         let array = arg.borrow();
@@ -310,7 +309,7 @@ impl ByteCodeInstruction for InstrDALoad {
 
 pub struct InstrAALoad {}
 impl ByteCodeInstruction for InstrAALoad {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
         let array = arg.borrow();
@@ -326,7 +325,7 @@ impl ByteCodeInstruction for InstrAALoad {
 
 pub struct InstrIStore { variable: u8 }
 impl ByteCodeInstruction for InstrIStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -335,7 +334,7 @@ impl ByteCodeInstruction for InstrIStore {
 
 pub struct InstrLStore { variable: u8 }
 impl ByteCodeInstruction for InstrLStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -344,7 +343,7 @@ impl ByteCodeInstruction for InstrLStore {
 
 pub struct InstrFStore { variable: u8 }
 impl ByteCodeInstruction for InstrFStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -353,7 +352,7 @@ impl ByteCodeInstruction for InstrFStore {
 
 pub struct InstrDStore { variable: u8 }
 impl ByteCodeInstruction for InstrDStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -362,7 +361,7 @@ impl ByteCodeInstruction for InstrDStore {
 
 pub struct InstrAStore { variable: u8 }
 impl ByteCodeInstruction for InstrAStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(self.variable as usize);
         return InstrNextAction::NEXT;
     }
@@ -371,7 +370,7 @@ impl ByteCodeInstruction for InstrAStore {
 
 pub struct InstrIStore0 {}
 impl ByteCodeInstruction for InstrIStore0 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
@@ -380,7 +379,7 @@ impl ByteCodeInstruction for InstrIStore0 {
 
 pub struct InstrIStore1 {}
 impl ByteCodeInstruction for InstrIStore1 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
@@ -389,7 +388,7 @@ impl ByteCodeInstruction for InstrIStore1 {
 
 pub struct InstrIStore2 {}
 impl ByteCodeInstruction for InstrIStore2 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
@@ -398,7 +397,7 @@ impl ByteCodeInstruction for InstrIStore2 {
 
 pub struct InstrIStore3 {}
 impl ByteCodeInstruction for InstrIStore3 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
@@ -409,7 +408,7 @@ impl ByteCodeInstruction for InstrIStore3 {
 
 pub struct InstrFStore0 {}
 impl ByteCodeInstruction for InstrFStore0 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
@@ -418,7 +417,7 @@ impl ByteCodeInstruction for InstrFStore0 {
 
 pub struct InstrFStore1 {}
 impl ByteCodeInstruction for InstrFStore1 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
@@ -427,7 +426,7 @@ impl ByteCodeInstruction for InstrFStore1 {
 
 pub struct InstrFStore2 {}
 impl ByteCodeInstruction for InstrFStore2 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
@@ -436,7 +435,7 @@ impl ByteCodeInstruction for InstrFStore2 {
 
 pub struct InstrFStore3 {}
 impl ByteCodeInstruction for InstrFStore3 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
@@ -445,7 +444,7 @@ impl ByteCodeInstruction for InstrFStore3 {
 
 pub struct InstrAStore0 {}
 impl ByteCodeInstruction for InstrAStore0 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(0);
         return InstrNextAction::NEXT;
     }
@@ -454,7 +453,7 @@ impl ByteCodeInstruction for InstrAStore0 {
 
 pub struct InstrAStore1 {}
 impl ByteCodeInstruction for InstrAStore1 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(1);
         return InstrNextAction::NEXT;
     }
@@ -463,7 +462,7 @@ impl ByteCodeInstruction for InstrAStore1 {
 
 pub struct InstrAStore2 {}
 impl ByteCodeInstruction for InstrAStore2 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(2);
         return InstrNextAction::NEXT;
     }
@@ -472,7 +471,7 @@ impl ByteCodeInstruction for InstrAStore2 {
 
 pub struct InstrAStore3 {}
 impl ByteCodeInstruction for InstrAStore3 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.stack_to_variable(3);
         return InstrNextAction::NEXT;
     }
@@ -481,7 +480,7 @@ impl ByteCodeInstruction for InstrAStore3 {
 
 pub struct InstrIAStore {}
 impl ByteCodeInstruction for InstrIAStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
@@ -495,7 +494,7 @@ impl ByteCodeInstruction for InstrIAStore {
 
 pub struct InstrLAStore {}
 impl ByteCodeInstruction for InstrLAStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
@@ -507,7 +506,7 @@ impl ByteCodeInstruction for InstrLAStore {
 
 pub struct InstrFAStore {}
 impl ByteCodeInstruction for InstrFAStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
@@ -519,7 +518,7 @@ impl ByteCodeInstruction for InstrFAStore {
 
 pub struct InstrDAStore {}
 impl ByteCodeInstruction for InstrDAStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
@@ -531,7 +530,7 @@ impl ByteCodeInstruction for InstrDAStore {
 
 pub struct InstrAAStore {}
 impl ByteCodeInstruction for InstrAAStore {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
@@ -543,7 +542,7 @@ impl ByteCodeInstruction for InstrAAStore {
 
 pub struct InstrPop { }
 impl ByteCodeInstruction for InstrPop {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.pop();
         return InstrNextAction::NEXT;
     }
@@ -552,7 +551,7 @@ impl ByteCodeInstruction for InstrPop {
 
 pub struct InstrPop2 { }
 impl ByteCodeInstruction for InstrPop2 {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.pop();
         sf.pop();
         return InstrNextAction::NEXT;
@@ -562,7 +561,7 @@ impl ByteCodeInstruction for InstrPop2 {
 
 pub struct InstrDup { }
 impl ByteCodeInstruction for InstrDup {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let arg = sf.pop();
         sf.push(arg.clone());
         sf.push(arg.clone());
@@ -576,7 +575,7 @@ impl ByteCodeInstruction for InstrDup {
 
 pub struct InstrIAdd {}
 impl ByteCodeInstruction for InstrIAdd {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 + nb1);
@@ -587,7 +586,7 @@ impl ByteCodeInstruction for InstrIAdd {
 
 pub struct InstrLAdd {}
 impl ByteCodeInstruction for InstrLAdd {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 + nb1);
@@ -598,7 +597,7 @@ impl ByteCodeInstruction for InstrLAdd {
 
 pub struct InstrFAdd {}
 impl ByteCodeInstruction for InstrFAdd {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
         sf.push_float(nb2 + nb1);
@@ -609,7 +608,7 @@ impl ByteCodeInstruction for InstrFAdd {
 
 pub struct InstrDAdd {}
 impl ByteCodeInstruction for InstrDAdd {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
         sf.push_double(nb2 + nb1);
@@ -620,7 +619,7 @@ impl ByteCodeInstruction for InstrDAdd {
 
 pub struct InstrISub {}
 impl ByteCodeInstruction for InstrISub {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 - nb1);
@@ -631,7 +630,7 @@ impl ByteCodeInstruction for InstrISub {
 
 pub struct InstrLSub {}
 impl ByteCodeInstruction for InstrLSub {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 - nb1);
@@ -642,7 +641,7 @@ impl ByteCodeInstruction for InstrLSub {
 
 pub struct InstrFSub {}
 impl ByteCodeInstruction for InstrFSub {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
         sf.push_float(nb2 - nb1);
@@ -653,7 +652,7 @@ impl ByteCodeInstruction for InstrFSub {
 
 pub struct InstrDSub {}
 impl ByteCodeInstruction for InstrDSub {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
         sf.push_double(nb2 - nb1);
@@ -664,7 +663,7 @@ impl ByteCodeInstruction for InstrDSub {
 
 pub struct InstrIMul {}
 impl ByteCodeInstruction for InstrIMul {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 * nb1);
@@ -675,7 +674,7 @@ impl ByteCodeInstruction for InstrIMul {
 
 pub struct InstrLMul {}
 impl ByteCodeInstruction for InstrLMul {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 * nb1);
@@ -686,7 +685,7 @@ impl ByteCodeInstruction for InstrLMul {
 
 pub struct InstrFMul {}
 impl ByteCodeInstruction for InstrFMul {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
         sf.push_float(nb2 * nb1);
@@ -697,7 +696,7 @@ impl ByteCodeInstruction for InstrFMul {
 
 pub struct InstrDMul {}
 impl ByteCodeInstruction for InstrDMul {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
         sf.push_double(nb2 * nb1);
@@ -708,7 +707,7 @@ impl ByteCodeInstruction for InstrDMul {
 
 pub struct InstrIDiv {}
 impl ByteCodeInstruction for InstrIDiv {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 / nb1);
@@ -719,7 +718,7 @@ impl ByteCodeInstruction for InstrIDiv {
 
 pub struct InstrLDiv {}
 impl ByteCodeInstruction for InstrLDiv {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 / nb1);
@@ -730,7 +729,7 @@ impl ByteCodeInstruction for InstrLDiv {
 
 pub struct InstrFDiv {}
 impl ByteCodeInstruction for InstrFDiv {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
         sf.push_float(nb2 / nb1);
@@ -741,7 +740,7 @@ impl ByteCodeInstruction for InstrFDiv {
 
 pub struct InstrDDiv {}
 impl ByteCodeInstruction for InstrDDiv {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
         sf.push_double(nb2 / nb1);
@@ -754,7 +753,7 @@ impl ByteCodeInstruction for InstrDDiv {
 
 pub struct InstrIRem {}
 impl ByteCodeInstruction for InstrIRem {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 % nb1);
@@ -765,7 +764,7 @@ impl ByteCodeInstruction for InstrIRem {
 
 pub struct InstrLRem {}
 impl ByteCodeInstruction for InstrLRem {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 % nb1);
@@ -776,7 +775,7 @@ impl ByteCodeInstruction for InstrLRem {
 
 pub struct InstrFRem {}
 impl ByteCodeInstruction for InstrFRem {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
         sf.push_float(nb2 % nb1);
@@ -787,7 +786,7 @@ impl ByteCodeInstruction for InstrFRem {
 
 pub struct InstrDRem {}
 impl ByteCodeInstruction for InstrDRem {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
         sf.push_double(nb2 % nb1);
@@ -798,7 +797,7 @@ impl ByteCodeInstruction for InstrDRem {
 
 pub struct InstrINeg {}
 impl ByteCodeInstruction for InstrINeg {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_int();
         sf.push_int(-nb);
         return InstrNextAction::NEXT;
@@ -808,7 +807,7 @@ impl ByteCodeInstruction for InstrINeg {
 
 pub struct InstrLNeg {}
 impl ByteCodeInstruction for InstrLNeg {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_long();
         sf.push_long(-nb);
         return InstrNextAction::NEXT;
@@ -818,7 +817,7 @@ impl ByteCodeInstruction for InstrLNeg {
 
 pub struct InstrFNeg {}
 impl ByteCodeInstruction for InstrFNeg {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_float();
         sf.push_float(-nb);
         return InstrNextAction::NEXT;
@@ -828,7 +827,7 @@ impl ByteCodeInstruction for InstrFNeg {
 
 pub struct InstrDNeg {}
 impl ByteCodeInstruction for InstrDNeg {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_double();
         sf.push_double(-nb);
         return InstrNextAction::NEXT;
@@ -838,7 +837,7 @@ impl ByteCodeInstruction for InstrDNeg {
 
 pub struct InstrIAnd {}
 impl ByteCodeInstruction for InstrIAnd {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 & nb1);
@@ -849,7 +848,7 @@ impl ByteCodeInstruction for InstrIAnd {
 
 pub struct InstrLAnd {}
 impl ByteCodeInstruction for InstrLAnd {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 & nb1);
@@ -862,7 +861,7 @@ impl ByteCodeInstruction for InstrLAnd {
 
 pub struct InstrIOr {}
 impl ByteCodeInstruction for InstrIOr {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 | nb1);
@@ -873,7 +872,7 @@ impl ByteCodeInstruction for InstrIOr {
 
 pub struct InstrLOr {}
 impl ByteCodeInstruction for InstrLOr {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 | nb1);
@@ -884,7 +883,7 @@ impl ByteCodeInstruction for InstrLOr {
 
 pub struct InstrIXor {}
 impl ByteCodeInstruction for InstrIXor {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
         sf.push_int(nb2 ^ nb1);
@@ -895,7 +894,7 @@ impl ByteCodeInstruction for InstrIXor {
 
 pub struct InstrLXor {}
 impl ByteCodeInstruction for InstrLXor {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
         sf.push_long(nb2 ^ nb1);
@@ -906,7 +905,7 @@ impl ByteCodeInstruction for InstrLXor {
 
 pub struct InstrIInc { idx: u8, count: i8 }
 impl ByteCodeInstruction for InstrIInc {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.variable_to_stack(self.idx as usize);
         let nb = sf.pop_int();
         sf.push_int(nb + self.count as i32);
@@ -918,7 +917,7 @@ impl ByteCodeInstruction for InstrIInc {
 
 pub struct InstrI2L {}
 impl ByteCodeInstruction for InstrI2L {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_int();
         sf.push_long(nb as i64);
         return InstrNextAction::NEXT;
@@ -928,7 +927,7 @@ impl ByteCodeInstruction for InstrI2L {
 
 pub struct InstrI2F {}
 impl ByteCodeInstruction for InstrI2F {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_int();
         sf.push_float(nb as f32);
         return InstrNextAction::NEXT;
@@ -938,7 +937,7 @@ impl ByteCodeInstruction for InstrI2F {
 
 pub struct InstrI2D {}
 impl ByteCodeInstruction for InstrI2D {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_int();
         sf.push_double(nb as f64);
         return InstrNextAction::NEXT;
@@ -948,7 +947,7 @@ impl ByteCodeInstruction for InstrI2D {
 
 pub struct InstrL2I {}
 impl ByteCodeInstruction for InstrL2I {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_long();
         sf.push_int(nb as i32);
         return InstrNextAction::NEXT;
@@ -958,7 +957,7 @@ impl ByteCodeInstruction for InstrL2I {
 
 pub struct InstrL2F {}
 impl ByteCodeInstruction for InstrL2F {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_long();
         sf.push_float(nb as f32);
         return InstrNextAction::NEXT;
@@ -968,7 +967,7 @@ impl ByteCodeInstruction for InstrL2F {
 
 pub struct InstrL2D {}
 impl ByteCodeInstruction for InstrL2D {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_long();
         sf.push_double(nb as f64);
         return InstrNextAction::NEXT;
@@ -978,7 +977,7 @@ impl ByteCodeInstruction for InstrL2D {
 
 pub struct InstrF2I {}
 impl ByteCodeInstruction for InstrF2I {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_float();
         sf.push_int(nb as i32);
         return InstrNextAction::NEXT;
@@ -988,7 +987,7 @@ impl ByteCodeInstruction for InstrF2I {
 
 pub struct InstrF2L {}
 impl ByteCodeInstruction for InstrF2L {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_float();
         sf.push_long(nb as i64);
         return InstrNextAction::NEXT;
@@ -998,7 +997,7 @@ impl ByteCodeInstruction for InstrF2L {
 
 pub struct InstrF2D {}
 impl ByteCodeInstruction for InstrF2D {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_float();
         sf.push_double(nb as f64);
         return InstrNextAction::NEXT;
@@ -1008,7 +1007,7 @@ impl ByteCodeInstruction for InstrF2D {
 
 pub struct InstrD2I {}
 impl ByteCodeInstruction for InstrD2I {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_double();
         sf.push_int(nb as i32);
         return InstrNextAction::NEXT;
@@ -1018,7 +1017,7 @@ impl ByteCodeInstruction for InstrD2I {
 
 pub struct InstrD2L {}
 impl ByteCodeInstruction for InstrD2L {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_double();
         sf.push_long(nb as i64);
         return InstrNextAction::NEXT;
@@ -1030,7 +1029,7 @@ impl ByteCodeInstruction for InstrD2L {
 
 pub struct InstrD2F {}
 impl ByteCodeInstruction for InstrD2F {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb = sf.pop_double();
         sf.push_float(nb as f32);
         return InstrNextAction::NEXT;
@@ -1040,7 +1039,7 @@ impl ByteCodeInstruction for InstrD2F {
 
 pub struct InstrLCmp {}
 impl ByteCodeInstruction for InstrLCmp {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb2 = sf.pop_long();
         let nb1 = sf.pop_long();
         let result: i32;
@@ -1060,7 +1059,7 @@ impl ByteCodeInstruction for InstrLCmp {
 
 pub struct InstrFCmpl {}
 impl ByteCodeInstruction for InstrFCmpl {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb2 = sf.pop_float();
         let nb1 = sf.pop_float();
         let mut result: i32 = 0;
@@ -1080,7 +1079,7 @@ impl ByteCodeInstruction for InstrFCmpl {
 
 pub struct InstrFCmpg {}
 impl ByteCodeInstruction for InstrFCmpg {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb2 = sf.pop_float();
         let nb1 = sf.pop_float();
         let mut result: i32 = 0;
@@ -1100,7 +1099,7 @@ impl ByteCodeInstruction for InstrFCmpg {
 
 pub struct InstrDCmpl {}
 impl ByteCodeInstruction for InstrDCmpl {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb2 = sf.pop_double();
         let nb1 = sf.pop_double();
         let mut result: i32 = 0;
@@ -1120,7 +1119,7 @@ impl ByteCodeInstruction for InstrDCmpl {
 
 pub struct InstrDCmpg {}
 impl ByteCodeInstruction for InstrDCmpg {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb2 = sf.pop_double();
         let nb1 = sf.pop_double();
         let mut result: i32 = 0;
@@ -1140,7 +1139,7 @@ impl ByteCodeInstruction for InstrDCmpg {
 
 pub struct InstrIfeq { branch: usize }
 impl ByteCodeInstruction for InstrIfeq {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let arg = sf.pop_int();
         if arg == 0 {
             return InstrNextAction::GOTO(self.branch);
@@ -1158,7 +1157,7 @@ impl ByteCodeInstruction for InstrIfeq {
 
 pub struct InstrIfne { branch: usize }
 impl ByteCodeInstruction for InstrIfne {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let arg = sf.pop_int();
         if arg != 0 {
             return InstrNextAction::GOTO(self.branch);
@@ -1176,7 +1175,7 @@ impl ByteCodeInstruction for InstrIfne {
 
 pub struct InstrIflt { branch: usize }
 impl ByteCodeInstruction for InstrIflt {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let arg = sf.pop_int();
         if arg < 0 {
             return InstrNextAction::GOTO(self.branch);
@@ -1194,7 +1193,7 @@ impl ByteCodeInstruction for InstrIflt {
 
 pub struct InstrIfge { branch: usize }
 impl ByteCodeInstruction for InstrIfge {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let arg = sf.pop_int();
         if arg >= 0 {
             return InstrNextAction::GOTO(self.branch);
@@ -1212,7 +1211,7 @@ impl ByteCodeInstruction for InstrIfge {
 
 pub struct InstrIfgt { branch: usize }
 impl ByteCodeInstruction for InstrIfgt {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let arg = sf.pop_int();
         if arg > 0 {
             return InstrNextAction::GOTO(self.branch);
@@ -1230,7 +1229,7 @@ impl ByteCodeInstruction for InstrIfgt {
 
 pub struct InstrIfle { branch: usize }
 impl ByteCodeInstruction for InstrIfle {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let arg = sf.pop_int();
         if arg <= 0 {
             return InstrNextAction::GOTO(self.branch);
@@ -1250,7 +1249,7 @@ impl ByteCodeInstruction for InstrIfle {
 
 pub struct InstrIfICmpEq { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpEq {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 == value2 {
@@ -1269,7 +1268,7 @@ impl ByteCodeInstruction for InstrIfICmpEq {
 
 pub struct InstrIfICmpNe { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpNe {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 != value2 {
@@ -1288,7 +1287,7 @@ impl ByteCodeInstruction for InstrIfICmpNe {
 
 pub struct InstrIfICmpLt { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpLt {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 < value2 {
@@ -1307,7 +1306,7 @@ impl ByteCodeInstruction for InstrIfICmpLt {
 
 pub struct InstrIfICmpGe { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpGe {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 >= value2 {
@@ -1326,7 +1325,7 @@ impl ByteCodeInstruction for InstrIfICmpGe {
 
 pub struct InstrIfICmpGt { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpGt {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 > value2 {
@@ -1345,7 +1344,7 @@ impl ByteCodeInstruction for InstrIfICmpGt {
 
 pub struct InstrIfICmpLe { branch: usize }
 impl ByteCodeInstruction for InstrIfICmpLe {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value2 = sf.pop_int();
         let value1 = sf.pop_int();
         if value1 <= value2 {
@@ -1364,7 +1363,7 @@ impl ByteCodeInstruction for InstrIfICmpLe {
 
 pub struct InstrGoto { branch: usize }
 impl ByteCodeInstruction for InstrGoto {
-    fn execute(&self, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _sf: &mut StackFrame) -> InstrNextAction {
         return InstrNextAction::GOTO(self.branch);
     }
     fn print(&self) { println!("      goto {}", self.branch); }
@@ -1378,7 +1377,7 @@ impl ByteCodeInstruction for InstrGoto {
 
 pub struct InstrTableSwitch { default: usize, low: usize, table: Vec<usize> }
 impl ByteCodeInstruction for InstrTableSwitch {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         
         let offset = (idx - self.low as i32) as usize;
@@ -1417,7 +1416,7 @@ impl ByteCodeInstruction for InstrTableSwitch {
 
 pub struct InstrLookupSwitch { default: usize, lookup: HashMap<i32, usize> }
 impl ByteCodeInstruction for InstrLookupSwitch {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         
         match self.lookup.get(&idx) {
@@ -1453,7 +1452,7 @@ impl ByteCodeInstruction for InstrLookupSwitch {
 
 pub struct InstrIReturn {}
 impl ByteCodeInstruction for InstrIReturn {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1462,7 +1461,7 @@ impl ByteCodeInstruction for InstrIReturn {
 
 pub struct InstrLReturn {}
 impl ByteCodeInstruction for InstrLReturn {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1471,7 +1470,7 @@ impl ByteCodeInstruction for InstrLReturn {
 
 pub struct InstrFReturn {}
 impl ByteCodeInstruction for InstrFReturn {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1480,7 +1479,7 @@ impl ByteCodeInstruction for InstrFReturn {
 
 pub struct InstrDReturn {}
 impl ByteCodeInstruction for InstrDReturn {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1491,7 +1490,7 @@ impl ByteCodeInstruction for InstrDReturn {
 
 pub struct InstrAReturn {}
 impl ByteCodeInstruction for InstrAReturn {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.set_return_arg_flag();
         return InstrNextAction::RETURN;
     }
@@ -1500,7 +1499,7 @@ impl ByteCodeInstruction for InstrAReturn {
 
 pub struct InstrReturn {}
 impl ByteCodeInstruction for InstrReturn {
-    fn execute(&self, _sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, _sf: &mut StackFrame) -> InstrNextAction {
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      return"); }
@@ -1508,8 +1507,8 @@ impl ByteCodeInstruction for InstrReturn {
 
 pub struct InstrGetStatic { class_name: String, field_name: String, type_desc: String }
 impl ByteCodeInstruction for InstrGetStatic {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
-        let class = classes.get_class(&self.class_name);
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let class = get_class(&self.class_name);
         sf.push(class.borrow().get_static_object(&self.field_name));
         return InstrNextAction::NEXT;
     }
@@ -1517,8 +1516,8 @@ impl ByteCodeInstruction for InstrGetStatic {
 }
 pub struct InstrPutStatic { class_name: String, field_name: String, type_desc: String }
 impl ByteCodeInstruction for InstrPutStatic {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
-        let class = classes.get_class(&self.class_name);
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let class = get_class(&self.class_name);
         class.borrow().put_static_object(&self.field_name, sf.pop());
         return InstrNextAction::NEXT;
     }
@@ -1527,7 +1526,7 @@ impl ByteCodeInstruction for InstrPutStatic {
 
 pub struct InstrGetField { class_name: String, field_name: String }
 impl ByteCodeInstruction for InstrGetField {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let instance = sf.pop();
         let field = instance.borrow().get_field(&self.field_name);
         sf.push(field);
@@ -1538,8 +1537,7 @@ impl ByteCodeInstruction for InstrGetField {
 
 pub struct InstrPutField { class_name: String, field_name: String }
 impl ByteCodeInstruction for InstrPutField {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
-//        unsafe { if DEBUG >= 1 { sf.print_stack(); } };
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value = sf.pop();
         let instance = sf.pop();
         instance.borrow_mut().set_field(&self.field_name, value);
@@ -1550,14 +1548,14 @@ impl ByteCodeInstruction for InstrPutField {
 
 pub struct InstrInvokeVirtual { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeVirtual {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
         for _ in 0..self.nb_args {
             args.push(sf.pop().clone());
         }
         let this = sf.pop();
-        let class = classes.get_class(&self.class_name);
-        class.borrow().execute_method(sf, classes, &self.method_name, this, args);
+        let class = get_class(&self.class_name);
+        class.borrow().execute_method(sf, &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokevirtual {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
@@ -1565,16 +1563,16 @@ impl ByteCodeInstruction for InstrInvokeVirtual {
 
 pub struct InstrInvokeSpecial { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeSpecial {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
-        unsafe { if DEBUG >= 1 { sf.print_stack(); }}
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        if get_debug() >= 1 { sf.print_stack(); }
 
         let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
         for _ in 0..self.nb_args {
             args.push(sf.pop().clone());
         }
         let this = sf.pop();
-        let class = classes.get_class(&self.class_name);
-        class.borrow().execute_method(sf, classes, &self.method_name, this, args);
+        let class = get_class(&self.class_name);
+        class.borrow().execute_method(sf,  &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokespecial {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
@@ -1582,9 +1580,9 @@ impl ByteCodeInstruction for InstrInvokeSpecial {
 
 pub struct InstrInvokeStatic { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeStatic {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
-        let class = classes.get_class(&self.class_name);
-        class.borrow().execute_static_method(sf, classes, &self.method_name, self.nb_args);
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let class = get_class(&self.class_name);
+        class.borrow().execute_static_method(sf, &self.method_name, self.nb_args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokestatic {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
@@ -1592,15 +1590,15 @@ impl ByteCodeInstruction for InstrInvokeStatic {
 
 pub struct InstrInvokeInterface { class_name: String, method_name: String, type_desc: String, count: usize, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeInterface {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
 
         let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
         for _ in 0..self.nb_args {
             args.push(sf.pop().clone());
         }
         let this = sf.pop();
-        let class = classes.get_class(&self.class_name);
-        class.borrow_mut().execute_method(sf, classes, &self.method_name, this, args);
+        let class = get_class(&self.class_name);
+        class.borrow_mut().execute_method(sf, &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokeinterface {}.{}{}(<{} arguments>) {}", self.class_name, self.method_name, self.type_desc, self.nb_args, self.count); }
@@ -1614,8 +1612,8 @@ pub struct InstrInvokeDynamic {
     class_name: String
 }
 impl ByteCodeInstruction for InstrInvokeDynamic {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
-        let class = classes.get_class(&self.class_name);
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let class = get_class(&self.class_name);
         let the_class = class.borrow();
         let bootstrap = match the_class.get_bootstrap_method(self.bootstrap_method_idx) {
             Some(bootstrap) => bootstrap,
@@ -1634,8 +1632,8 @@ impl ByteCodeInstruction for InstrInvokeDynamic {
         }
         type_desc.push_str(")V");
 
-        let class = classes.get_class(&bootstrap.class_name);
-        class.borrow_mut().execute_static_method(sf, classes, &bootstrap.method_name, self.method_nb_args);
+        let class = get_class(&bootstrap.class_name);
+        class.borrow_mut().execute_static_method(sf, &bootstrap.method_name, self.method_nb_args);
 
         return InstrNextAction::NEXT;
     }
@@ -1644,8 +1642,8 @@ impl ByteCodeInstruction for InstrInvokeDynamic {
 
 pub struct InstrNew { class_name: String }
 impl ByteCodeInstruction for InstrNew {
-    fn execute(&self, sf: &mut StackFrame, classes: &Classes) -> InstrNextAction {
-        let class = classes.get_class(&self.class_name);
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let class = get_class(&self.class_name);
         sf.push(class.borrow().new());
         return InstrNextAction::NEXT;
     }
@@ -1654,7 +1652,7 @@ impl ByteCodeInstruction for InstrNew {
 
 pub struct InstrNewArray { atype: u8 }
 impl ByteCodeInstruction for InstrNewArray {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let count = sf.pop_int();
         let mut array: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
         for _i in 0..count {
@@ -1668,7 +1666,7 @@ impl ByteCodeInstruction for InstrNewArray {
 
 pub struct InstrANewArray { class_name: String }
 impl ByteCodeInstruction for InstrANewArray {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let count = sf.pop_int();
         let mut array: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
         for _i in 0..count {
@@ -1682,7 +1680,7 @@ impl ByteCodeInstruction for InstrANewArray {
 
 pub struct InstrArrayLength { }
 impl ByteCodeInstruction for InstrArrayLength {
-    fn execute(&self, sf: &mut StackFrame, _classes: &Classes) -> InstrNextAction {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let array = sf.pop_array();
         sf.push_int(array.borrow().len() as i32);
         return InstrNextAction::NEXT;

@@ -4,11 +4,10 @@ use std::fs::File;
 use std::path::Path;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::CLASSES;
 use crate::bytecode::InstrNextAction;
+use crate::get_class;
 use crate::get_debug;
 use crate::java_class::JavaClass;
-use crate::jvm::Classes;
 use crate::jvm::StackFrame;
 use crate::native_java_classes::NativeObjectInstance;
 use crate::{bytecode::ByteCode, jvm::JavaInstance, native_java_classes::NativeArrayInstance};
@@ -34,19 +33,17 @@ pub struct BytecodeClass {
 
 impl JavaClass for BytecodeClass {
     fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
-        unsafe {
-            let superclass = CLASSES.get(&self.superclass_name);
-            let parent = superclass.borrow().new();
-            return Rc::new(RefCell::new(BytecodeInstance { class_name: self.get_name(), parent: Some(parent), fields: HashMap::new() }));
-        }
+        let superclass = get_class(&self.superclass_name);
+        let parent = superclass.borrow().new();
+        return Rc::new(RefCell::new(BytecodeInstance { class_name: self.get_name(), parent: Some(parent), fields: HashMap::new() }));
     }
 
-    fn init_static_fields(&mut self, classes: &Classes) {
+    fn init_static_fields(&mut self) {
         for (field_name, class_name) in self.static_fields_desc.iter() {
             if class_name.eq(&self.name) {
                 self.static_fields.borrow_mut().insert(field_name.clone(), self.new());
             } else {
-                let class = classes.get_class(&class_name);
+                let class = get_class(&class_name);
                 let the_class = class.borrow();
                 self.static_fields.borrow_mut().insert(field_name.clone(), the_class.new());
             }
@@ -107,7 +104,7 @@ impl JavaClass for BytecodeClass {
         }
     }
 
-    fn execute_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         if self.methods.contains_key(method_name) {
             if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
 
@@ -127,24 +124,24 @@ impl JavaClass for BytecodeClass {
 
             let mut sf_new = StackFrame::new(variables, sf.debug);
 
-            self.execute_bytecode(&mut sf_new, classes, method_name);
+            self.execute_bytecode(&mut sf_new, method_name);
             if sf_new.return_arg {
                 sf.push(sf_new.pop());
             }
         } else {
-            let superclass = classes.get_class(&self.superclass_name);
+            let superclass = get_class(&self.superclass_name);
             if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, args.len()); }
 
             let parent = this.borrow().get_parent();
             match parent {
-                Some(p) => superclass.borrow().execute_method(sf, classes, method_name, p, args),
+                Some(p) => superclass.borrow().execute_method(sf, method_name, p, args),
                 _ => panic!("Bytecode instance {} does not support method {}", self.get_name(), method_name)
             };
             
         }
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String, nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, nb_args: usize) {
         if self.methods.contains_key(method_name) {
             if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
 
@@ -160,15 +157,15 @@ impl JavaClass for BytecodeClass {
 
             let mut sf_new = StackFrame::new(variables, sf.debug);
 
-            self.execute_bytecode(&mut sf_new, classes, method_name);
+            self.execute_bytecode(&mut sf_new, method_name);
             if sf_new.return_arg {
                 sf.push(sf_new.pop());
             }
         } else {
-            let superclass = classes.get_class(&self.superclass_name);
+            let superclass = get_class(&self.superclass_name);
             if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, nb_args); }
 
-            superclass.borrow().execute_static_method(sf, classes, method_name, nb_args);
+            superclass.borrow().execute_static_method(sf, method_name, nb_args);
         }
     }
 
@@ -499,7 +496,7 @@ impl BytecodeClass {
         }
     }
 
-    fn execute_bytecode(&self, sf: &mut StackFrame, classes: &Classes, method_name: &String) {
+    fn execute_bytecode(&self, sf: &mut StackFrame, method_name: &String) {
         let bytecode = match self.methods.get(method_name) {
             Some(method) => method,
             _ => panic!("Unknown method {} in class {}", method_name, self.name)
@@ -514,7 +511,7 @@ impl BytecodeClass {
                         print!("Execute {} ", instr_idx);
                         instr.print();
                     }
-                    match instr.execute(sf, classes) {
+                    match instr.execute(sf) {
                         InstrNextAction::NEXT => {
                             instr_idx += 1;
                         },

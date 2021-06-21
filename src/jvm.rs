@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::JavaClass;
 use crate::native_java_classes::NativeArrayInstance;
 use crate::native_java_classes::NativeBooleanInstance;
 use crate::native_java_classes::NativeFloatInstance;
@@ -13,34 +11,6 @@ use crate::native_java_classes::NativeStringInstance;
 use crate::streams::StreamFunction;
 
 //////////////////////////////////////////
-
-pub struct Classes {
-    pub classes: HashMap<String, Rc<RefCell<dyn JavaClass>>>
-}
-
-impl Classes {
-    pub fn new() -> Classes {
-        Classes {
-            classes: HashMap::new()
-        }
-    }
-
-    pub fn has_class(&self, class_name: &String) -> bool {
-        self.classes.contains_key(class_name)
-    }
-
-    pub fn get_class(&self, class_name: &String) -> &Rc<RefCell<dyn JavaClass>> {
-        let arrays_name = "java/util/Arrays".to_string();
-        return match self.classes.get(if class_name.starts_with("[") { &arrays_name } else { class_name}) {
-            Some(class) => class,
-            _ => panic!("Unknown class {}", class_name)
-        }
-    }
-
-    pub fn add_class(&mut self, class: Rc<RefCell<dyn JavaClass>>) {
-        self.classes.insert(class.borrow().get_name(), class.clone());
-    }
-}
 
 pub trait JavaInstance {
     fn is_bytecode(&self) -> bool { false }
@@ -54,7 +24,7 @@ pub trait JavaInstance {
     fn get_string(&self) -> String { panic!("{} cannot be converted into a double", self.get_class_name()); }
     fn get_bool(&self) -> bool { panic!("{} cannot be converted into a boolean", self.get_class_name()); }
     fn get_array(&self) -> Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> { panic!("{} cannot be converted into an array", self.get_class_name()); }
-    fn execute_method(&mut self, _sf: &mut StackFrame, _classes: &Classes, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         panic!("{} does not support any method ({} requested)", self.get_class_name(), method_name);
     }
     fn get_field(&self, field_name: &String) -> Rc<RefCell<dyn JavaInstance>> {
