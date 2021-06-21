@@ -10,6 +10,7 @@ See also the following to understand more about Java/Scala/Kotlin code gets conv
 - [Bytecode overview](bytecode.md)
 - [Java Streams overview](streams.md)
 - [The Java switch statement](switch.md)
+- [Java enums](enums.md)
 
 ## How to use it
 
@@ -38,6 +39,7 @@ Execute 3       return
 > ./target/debug/jvm Person
 John Smith
 Can legally drink (in the U.S.)
+Young Adult
 Will or Kevin?
 
 > ./target/debug/jvm Streams Alice Bob Charlie Anna Delta
