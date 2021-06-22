@@ -835,6 +835,54 @@ impl ByteCodeInstruction for InstrDNeg {
     fn print(&self) { println!("      dneg"); }
 }
 
+pub struct InstrIShl {}
+impl ByteCodeInstruction for InstrIShl {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop_int() & 31;
+        let value1 = sf.pop_int();
+
+        sf.push_int(value1 << value2);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      ishl"); }
+}
+
+pub struct InstrLShl {}
+impl ByteCodeInstruction for InstrLShl {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop_long() & 63;
+        let value1 = sf.pop_long();
+
+        sf.push_long(value1 << value2);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lshl"); }
+}
+
+pub struct InstrIShr {}
+impl ByteCodeInstruction for InstrIShr {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop_int() & 31;
+        let value1 = sf.pop_int();
+
+        sf.push_int(value1 >> value2);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      ishr"); }
+}
+
+pub struct InstrLShr {}
+impl ByteCodeInstruction for InstrLShr {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop_long() & 63;
+        let value1 = sf.pop_long();
+
+        sf.push_long(value1 >> value2);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lshr"); }
+}
+
 pub struct InstrIAnd {}
 impl ByteCodeInstruction for InstrIAnd {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
@@ -1879,10 +1927,10 @@ impl ByteCode {
                 0x75 => Box::new(InstrLNeg {}),
                 0x76 => Box::new(InstrFNeg {}),
                 0x77 => Box::new(InstrDNeg {}),
-//                0x78 => ishl
-//                0x79 => lshl
-//                0x7a => ishr
-//                0x7b => ishl
+                0x78 => Box::new(InstrIShl {}),
+                0x79 => Box::new(InstrLShl {}),
+                0x7a => Box::new(InstrIShr {}),
+                0x7b => Box::new(InstrLShr {}),
 //                0x7c => iushr
 //                0x7d => lushr
                 0x7e => Box::new(InstrIAnd {}),

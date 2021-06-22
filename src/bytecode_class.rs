@@ -122,7 +122,7 @@ impl JavaClass for BytecodeClass {
             }
             variables[0] = this.clone();
 
-            let mut sf_new = StackFrame::new(variables, sf.debug);
+            let mut sf_new = StackFrame::new(variables);
 
             self.execute_bytecode(&mut sf_new, method_name);
             if sf_new.return_arg {
@@ -155,7 +155,7 @@ impl JavaClass for BytecodeClass {
                 variables[nb_args - 1 - i] = sf.pop();
             }
 
-            let mut sf_new = StackFrame::new(variables, sf.debug);
+            let mut sf_new = StackFrame::new(variables);
 
             self.execute_bytecode(&mut sf_new, method_name);
             if sf_new.return_arg {

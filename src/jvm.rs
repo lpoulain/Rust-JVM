@@ -42,16 +42,14 @@ pub trait JavaInstance {
 pub struct StackFrame {
     stack: Vec<Rc<RefCell<dyn JavaInstance>>>,
     variables: [Rc<RefCell<dyn JavaInstance>>; 16],
-    pub debug: u8,
     pub return_arg: bool
 }
 
 impl StackFrame {
-    pub fn new(variables: [Rc<RefCell<dyn JavaInstance>>; 16], debug: u8) -> StackFrame {
+    pub fn new(variables: [Rc<RefCell<dyn JavaInstance>>; 16]) -> StackFrame {
         StackFrame {
             stack: Vec::new(),
             variables,
-            debug,
             return_arg: false
         }
     }

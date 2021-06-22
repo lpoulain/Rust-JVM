@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::StackFrame;
+use crate::{StackFrame, get_debug};
 use crate::bytecode_class::AttributeBootstrapMethod;
 use crate::bytecode_class::ConstantMethodHandle;
 use crate::jvm::JavaInstance;
@@ -55,7 +55,7 @@ pub trait JavaClass {
     fn get_name(&self) -> String;
     fn print(&self) { }
     fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
-        if sf.debug >= 1 { println!("Execute native method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
+        if get_debug() >= 1 { println!("Execute native method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
 
         let mut object = this.clone();
         let expected_class = self.get_name();
@@ -120,3 +120,12 @@ impl JavaInstance for BytecodeInstance {
 }
 
 
+#[cfg(test)]
+mod tests {
+    use crate::java_class::get_nb_arguments;
+
+    #[test]
+    fn test_get_nb_arguments() {
+        assert_eq!(get_nb_arguments(&"(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;".to_string()), 2);
+    }
+}

@@ -4,6 +4,7 @@ mod bytecode;
 mod bytecode_class;
 mod native_java_classes;
 mod streams;
+mod bytecode_test;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -148,7 +149,7 @@ fn main() {
         var.clone(), var.clone(), var.clone(), var.clone(),
         var.clone(), var.clone(), var.clone(), var.clone()];
 
-    let mut sf = StackFrame::new(variables, debug);
+    let mut sf = StackFrame::new(variables);
     sf.push_array(Rc::new(RefCell::new(java_args)));
 
     let mut classes = get_classes();
