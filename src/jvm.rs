@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::native_java_classes::NativeArrayInstance;
+use crate::native_java_classes::{NativeArrayInstance, NativeByteInstance, NativeCharInstance, NativeNullInstance, NativeShortInstance};
 use crate::native_java_classes::NativeBooleanInstance;
 use crate::native_java_classes::NativeFloatInstance;
 use crate::native_java_classes::NativeDoubleInstance;
@@ -23,7 +23,12 @@ pub trait JavaInstance {
     fn get_double(&self) -> f64 { panic!("{} cannot be converted into a double", self.get_class_name()); }
     fn get_string(&self) -> String { panic!("{} cannot be converted into a double", self.get_class_name()); }
     fn get_bool(&self) -> bool { panic!("{} cannot be converted into a boolean", self.get_class_name()); }
+    fn get_short(&self) -> i16 { panic!("{} cannot be converted into a short", self.get_class_name()); }
+    fn get_byte(&self) -> u8 { panic!("{} cannot be converted into a byte", self.get_class_name()); }
+    fn get_char(&self) -> char { panic!("{} cannot be converted into a char", self.get_class_name()); }
     fn get_array(&self) -> Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> { panic!("{} cannot be converted into an array", self.get_class_name()); }
+    fn is_null(&self) -> bool { false }
+
     fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
         panic!("{} does not support any method ({} requested)", self.get_class_name(), method_name);
     }
@@ -61,12 +66,24 @@ impl StackFrame {
     pub fn push(&mut self, object: Rc<RefCell<dyn JavaInstance>>) { self.stack.push(object.clone()); }
     pub fn pop(&mut self) -> Rc<RefCell<dyn JavaInstance>> { return self.stack.pop().unwrap(); }
 
+    pub fn push_null(&mut self) { self.push(Rc::new(RefCell::new(NativeNullInstance::new()))); }
+    pub fn pop_isnull(&mut self) -> bool { return (*self.pop()).borrow().is_null(); }
+
     pub fn pop_int(&mut self) -> i32 { return (*self.pop()).borrow().get_int(); }
     pub fn push_int(&mut self, value: i32) { self.push(Rc::new(RefCell::new(NativeIntegerInstance::new(value)))); }
 
     pub fn pop_long(&mut self) -> i64 { return (*self.pop()).borrow().get_long(); }
     pub fn push_long(&mut self, value: i64) { self.push(Rc::new(RefCell::new(NativeLongInstance::new(value)))); }
- 
+
+    pub fn pop_short(&mut self) -> i16 { return (*self.pop()).borrow().get_short(); }
+    pub fn push_short(&mut self, value: i16) { self.push(Rc::new(RefCell::new(NativeShortInstance::new(value)))); }
+
+    pub fn pop_byte(&mut self) -> u8 { return (*self.pop()).borrow().get_byte(); }
+    pub fn push_byte(&mut self, value: u8) { self.push(Rc::new(RefCell::new(NativeByteInstance::new(value)))); }
+
+    pub fn pop_char(&mut self) -> char { return (*self.pop()).borrow().get_char(); }
+    pub fn push_char(&mut self, value: char) { self.push(Rc::new(RefCell::new(NativeCharInstance::new(value)))); }
+
     pub fn pop_float(&mut self) -> f32 { return (*self.pop()).borrow().get_float(); }
     pub fn push_float(&mut self, value: f32) { self.push(Rc::new(RefCell::new(NativeFloatInstance::new(value)))); }
 

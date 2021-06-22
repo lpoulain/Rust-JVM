@@ -2,7 +2,7 @@
 mod tests {
     use std::{cell::RefCell, rc::Rc};
 
-    use crate::{bytecode::{ByteCodeInstruction, InstrIAdd, InstrIShl, InstrIShr, InstrLShl, InstrLShr}, jvm::{JavaInstance, StackFrame}, native_java_classes::NativeObjectInstance};
+    use crate::{bytecode::{ByteCodeInstruction, InstrIAdd, InstrIShl, InstrIShr, InstrIUShr, InstrLShl, InstrLShr, InstrLUShr}, jvm::{JavaInstance, StackFrame}, native_java_classes::NativeObjectInstance};
 
     fn get_stack_frame() -> StackFrame {
         let var = Rc::new(RefCell::new(NativeObjectInstance {}));
@@ -79,4 +79,29 @@ mod tests {
         assert_eq!(result, 42);
     }
 
+    #[test]
+    fn test_instr_iushr() {
+        let mut sf = get_stack_frame();
+        sf.push_int(-336);
+        sf.push_int(3);
+
+        let instr = InstrIUShr {};
+        instr.execute(&mut sf);
+        
+        let result = sf.pop_int();
+        assert_eq!(result, -42);
+    }
+
+    #[test]
+    fn test_instr_lushr() {
+        let mut sf = get_stack_frame();
+        sf.push_long(-721554505728);
+        sf.push_long(34);
+
+        let instr = InstrLUShr {};
+        instr.execute(&mut sf);
+        
+        let result = sf.pop_long();
+        assert_eq!(result, -42);
+    }
 }

@@ -147,6 +147,22 @@ impl JavaClass for NativeSystemClass {
 
 }
 
+/////////////////// Null
+
+pub struct NativeNullInstance { }
+
+impl NativeNullInstance {
+    pub fn new() -> NativeNullInstance {
+        NativeNullInstance { }
+    }
+}
+
+impl JavaInstance for NativeNullInstance {
+    fn get_class_name(&self) -> String { "null".to_string() }
+    fn is_null(&self) -> bool { true }
+    fn print(&self) { print!("<null>"); }
+}
+
 /////////////////// java.lang.Integer
  
 pub struct NativeIntegerInstance { value: i32 }
@@ -210,6 +226,70 @@ impl JavaInstance for NativeLongInstance {
         return "java/lang/Long".to_string();
     }
     fn get_long(&self) -> i64 {
+        return self.value;
+    }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
+/////////////////// java.lang.Short
+
+pub struct NativeShortInstance { value: i16 }
+
+impl NativeShortInstance {
+    pub fn new(value: i16) -> NativeShortInstance {
+        NativeShortInstance { value }
+    }
+}
+
+impl JavaInstance for NativeShortInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Short".to_string();
+    }
+    fn get_short(&self) -> i16 { self.value }
+    fn get_int(&self) -> i32 { self.value as i32 }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
+/////////////////// java.lang.Byte
+
+pub struct NativeByteInstance { value: u8 }
+
+impl NativeByteInstance {
+    pub fn new(value: u8) -> NativeByteInstance {
+        NativeByteInstance { value }
+    }
+}
+
+impl JavaInstance for NativeByteInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Byte".to_string();
+    }
+    fn get_byte(&self) -> u8 { self.value }
+    fn get_int(&self) -> i32 { self.value as i32 }
+    fn print(&self) {
+        print!("{}", self.value);
+    }
+}
+
+/////////////////// java.lang.Char
+
+pub struct NativeCharInstance { value: char }
+
+impl NativeCharInstance {
+    pub fn new(value: char) -> NativeCharInstance {
+        NativeCharInstance { value }
+    }
+}
+
+impl JavaInstance for NativeCharInstance {
+    fn get_class_name(&self) -> String {
+        return "java/lang/Char".to_string();
+    }
+    fn get_char(&self) -> char {
         return self.value;
     }
     fn print(&self) {

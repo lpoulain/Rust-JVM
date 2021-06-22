@@ -44,6 +44,15 @@ impl ByteCodeInstruction for InstrNop {
     fn print(&self) { println!("      nop"); }
 }
 
+pub struct InstrAConstNull { }
+impl ByteCodeInstruction for InstrAConstNull {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        sf.push_null();
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      aconst_null"); }
+}
+
 pub struct InstrIConst { value: i32 }
 impl ByteCodeInstruction for InstrIConst {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
@@ -121,10 +130,19 @@ impl ByteCodeInstruction for InstrDConst1 {
 pub struct InstrBiPush { value: u8 }
 impl ByteCodeInstruction for InstrBiPush {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
-        sf.push_int(self.value as i32);
+        sf.push_byte(self.value);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      bipush {}", self.value); }
+}
+
+pub struct InstrSiPush { value: i16 }
+impl ByteCodeInstruction for InstrSiPush {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        sf.push_short(self.value);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      sipush {}", self.value); }
 }
 
 pub struct InstrILoad { variable: u8 }
@@ -321,6 +339,54 @@ impl ByteCodeInstruction for InstrAALoad {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aaload"); }
+}
+
+pub struct InstrBALoad {}
+impl ByteCodeInstruction for InstrBALoad {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let idx = sf.pop_int();
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+            Some(obj) => obj,
+            _ => panic!("No object in the array at index {}", idx)
+        };
+        sf.push(object.clone());
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      baload"); }
+}
+
+pub struct InstrCALoad {}
+impl ByteCodeInstruction for InstrCALoad {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let idx = sf.pop_int();
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+            Some(obj) => obj,
+            _ => panic!("No object in the array at index {}", idx)
+        };
+        sf.push(object.clone());
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      caload"); }
+}
+
+pub struct InstrSALoad {}
+impl ByteCodeInstruction for InstrSALoad {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let idx = sf.pop_int();
+        let arg = sf.pop_array();
+        let array = arg.borrow();
+        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+            Some(obj) => obj,
+            _ => panic!("No object in the array at index {}", idx)
+        };
+        sf.push(object.clone());
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      saload"); }
 }
 
 pub struct InstrIStore { variable: u8 }
@@ -538,6 +604,42 @@ impl ByteCodeInstruction for InstrAAStore {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aastore"); }
+}
+
+pub struct InstrBAStore {}
+impl ByteCodeInstruction for InstrBAStore {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let object = sf.pop();
+        let idx = sf.pop_int();
+        let array = sf.pop_array();
+        array.borrow_mut()[idx as usize] = object;
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      bastore"); }
+}
+
+pub struct InstrCAStore {}
+impl ByteCodeInstruction for InstrCAStore {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let object = sf.pop();
+        let idx = sf.pop_int();
+        let array = sf.pop_array();
+        array.borrow_mut()[idx as usize] = object;
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      castore"); }
+}
+
+pub struct InstrSAStore {}
+impl ByteCodeInstruction for InstrSAStore {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let object = sf.pop();
+        let idx = sf.pop_int();
+        let array = sf.pop_array();
+        array.borrow_mut()[idx as usize] = object;
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      sastore"); }
 }
 
 pub struct InstrPop { }
@@ -883,6 +985,38 @@ impl ByteCodeInstruction for InstrLShr {
     fn print(&self) { println!("      lshr"); }
 }
 
+pub struct InstrIUShr {}
+impl ByteCodeInstruction for InstrIUShr {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop_int() & 31;
+        let value1 = sf.pop_int();
+
+        if value1 >= 0 {
+            sf.push_int(value1 >> value2);
+        } else {
+            sf.push_int(-((-value1) >> value2));
+        }
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      iushr"); }
+}
+
+pub struct InstrLUShr {}
+impl ByteCodeInstruction for InstrLUShr {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop_long() & 63;
+        let value1 = sf.pop_long();
+
+        if value1 >= 0 {
+            sf.push_long(value1 >> value2);
+        } else {
+            sf.push_long(-((-value1) >> value2));
+        }
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      lushr"); }
+}
+
 pub struct InstrIAnd {}
 impl ByteCodeInstruction for InstrIAnd {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
@@ -1083,6 +1217,36 @@ impl ByteCodeInstruction for InstrD2F {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      d2f"); }
+}
+
+pub struct InstrI2B {}
+impl ByteCodeInstruction for InstrI2B {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let nb = sf.pop_int();
+        sf.push_byte(nb as u8);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      i2b"); }
+}
+
+pub struct InstrI2C {}
+impl ByteCodeInstruction for InstrI2C {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let nb = sf.pop_int();
+        sf.push_char(nb as u8 as char);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      i2c"); }
+}
+
+pub struct InstrI2S {}
+impl ByteCodeInstruction for InstrI2S {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let nb = sf.pop_int();
+        sf.push_short(nb as i16);
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      i2s"); }
 }
 
 pub struct InstrLCmp {}
@@ -1738,6 +1902,42 @@ impl ByteCodeInstruction for InstrArrayLength {
 
 ///////////// 0xc
 
+pub struct InstrIfNull { branch: usize }
+impl ByteCodeInstruction for InstrIfNull {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let isnull = sf.pop_isnull();
+        if isnull {
+            return InstrNextAction::GOTO(self.branch);
+        }
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      ifnull {}", self.branch); }
+    fn set_branch(&mut self, address_map: &HashMap<usize, usize>) {
+        match address_map.get(&self.branch) {
+            Some(instr_idx) => { self.branch = *instr_idx; },
+            _ => panic!("Unknown branch position {}", self.branch)
+        }
+    }
+}
+
+pub struct InstrIfNotNull { branch: usize }
+impl ByteCodeInstruction for InstrIfNotNull {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let isnull = sf.pop_isnull();
+        if !isnull {
+            return InstrNextAction::GOTO(self.branch);
+        }
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      ifnotnull {}", self.branch); }
+    fn set_branch(&mut self, address_map: &HashMap<usize, usize>) {
+        match address_map.get(&self.branch) {
+            Some(instr_idx) => { self.branch = *instr_idx; },
+            _ => panic!("Unknown branch position {}", self.branch)
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 
 pub struct ByteCode {
@@ -1772,7 +1972,7 @@ impl ByteCode {
             let opcode = data.get_u8();
             let instr: Box<dyn ByteCodeInstruction> = match opcode {
                 0x00 => Box::new(InstrNop {}),
-//                0x01 => aconst_null
+                0x01 => Box::new(InstrAConstNull {}),
                 0x02 => Box::new(InstrIConst { value:-1 }),
                 0x03 => Box::new(InstrIConst { value:0 }),
                 0x04 => Box::new(InstrIConst { value:1 }),
@@ -1788,7 +1988,7 @@ impl ByteCode {
                 0x0e => Box::new(InstrDConst0 {}),
                 0x0f => Box::new(InstrDConst1 {}),
                 0x10 => Box::new(InstrBiPush { value: data.get_u8() }),
-//                0x11 => sipush
+                0x11 => Box::new(InstrSiPush { value: data.get_i16() }),
                 0x12 => {
                     let idx = data.get_u8() as usize;
                     match constants_string_ref.get(&idx) {
@@ -1858,9 +2058,9 @@ impl ByteCode {
                 0x30 => Box::new(InstrFALoad {}),
                 0x31 => Box::new(InstrDALoad {}),
                 0x32 => Box::new(InstrAALoad {}),
-//                0x33 => baload
-//                0x34 => caload
-//                0x35 => saload
+                0x33 => Box::new(InstrBALoad {}),
+                0x34 => Box::new(InstrCALoad {}),
+                0x35 => Box::new(InstrSALoad {}),
                 0x36 => Box::new(InstrIStore { variable: data.get_u8() }),
                 0x37 => Box::new(InstrLStore { variable: data.get_u8() }),
                 0x38 => Box::new(InstrFStore { variable: data.get_u8() }),
@@ -1891,9 +2091,9 @@ impl ByteCode {
                 0x51 => Box::new(InstrFAStore {}),
                 0x52 => Box::new(InstrDAStore {}),
                 0x53 => Box::new(InstrAAStore {}),
-//                0x54 => bastore
-//                0x55 => castore
-//                0x56 => sastore
+                0x54 => Box::new(InstrBAStore {}),
+                0x55 => Box::new(InstrCAStore {}),
+                0x56 => Box::new(InstrSAStore {}),
                 0x57 => Box::new(InstrPop {}),
                 0x58 => Box::new(InstrPop2 {}),
                 0x59 => Box::new(InstrDup {}),
@@ -1931,8 +2131,8 @@ impl ByteCode {
                 0x79 => Box::new(InstrLShl {}),
                 0x7a => Box::new(InstrIShr {}),
                 0x7b => Box::new(InstrLShr {}),
-//                0x7c => iushr
-//                0x7d => lushr
+                0x7c => Box::new(InstrIUShr {}),
+                0x7d => Box::new(InstrLUShr {}),
                 0x7e => Box::new(InstrIAnd {}),
                 0x7f => Box::new(InstrLAnd {}),
                 0x80 => Box::new(InstrIOr {}),
@@ -1952,9 +2152,9 @@ impl ByteCode {
                 0x8e => Box::new(InstrD2I {}),
                 0x8f => Box::new(InstrD2L {}),
                 0x90 => Box::new(InstrD2F {}),
-//                0x91 => i2b
-//                0x92 => i2c
-//                0x93 => i2s
+                0x91 => Box::new(InstrI2B {}),
+                0x92 => Box::new(InstrI2C {}),
+                0x93 => Box::new(InstrI2C {}),
                 0x94 => Box::new(InstrLCmp {}),
                 0x95 => Box::new(InstrFCmpl {}),
                 0x96 => Box::new(InstrFCmpg {}),
@@ -2118,9 +2318,9 @@ impl ByteCode {
 //                0xc3 => monitorexit
 //                0xc4 => wide
 //                0xc5 => multianewarray
-//                0xc6 => ifnull
-//                0xc7 => ifnonnull
-//                0xc8 => goto_w
+                0xc6 => Box::new(InstrIfNull { branch: (data_offset as i16 + data.get_i16()) as usize }),
+                0xc7 => Box::new(InstrIfNotNull { branch: (data_offset as i16 + data.get_i16()) as usize }),
+                0xc8 => Box::new(InstrGoto { branch: (data_offset as i32 + data.get_i32()) as usize }),
                 _ => panic!("Unknown opcode {:#02x}", opcode)
             };
 
