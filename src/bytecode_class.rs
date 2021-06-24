@@ -9,8 +9,11 @@ use crate::get_class;
 use crate::get_debug;
 use crate::java_class::JavaClass;
 use crate::jvm::StackFrame;
+use crate::native_java_classes::NativeFloatInstance;
+use crate::native_java_classes::NativeIntegerInstance;
+use crate::native_java_classes::NativeNullInstance;
 use crate::native_java_classes::NativeObjectInstance;
-use crate::{bytecode::ByteCode, jvm::JavaInstance, native_java_classes::NativeArrayInstance};
+use crate::{bytecode::ByteCode, jvm::JavaInstance};
 use crate::java_class::BytecodeInstance;
 
 pub struct BytecodeClass {
@@ -26,28 +29,23 @@ pub struct BytecodeClass {
     constants_dynamic: HashMap<usize, ConstantInvokeDynamic>,
     methods: Rc<HashMap<String, ByteCode>>,
     pub bootstrap_methods: Vec<AttributeBootstrapMethod>,
+    fields: HashMap<String, String>,
     static_fields: Rc<RefCell<HashMap<String, Rc<RefCell<dyn JavaInstance>>>>>,
-    static_fields_desc: HashMap<String, String>,
     has_static_init: bool
 }
 
 impl JavaClass for BytecodeClass {
     fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
         let superclass = get_class(&self.superclass_name);
-        let parent = superclass.borrow().new();
-        return Rc::new(RefCell::new(BytecodeInstance { class_name: self.get_name(), parent: Some(parent), fields: HashMap::new() }));
-    }
+        let parent = superclass.new();
 
-    fn init_static_fields(&mut self) {
-        for (field_name, class_name) in self.static_fields_desc.iter() {
-            if class_name.eq(&self.name) {
-                self.static_fields.borrow_mut().insert(field_name.clone(), self.new());
-            } else {
-                let class = get_class(&class_name);
-                let the_class = class.borrow();
-                self.static_fields.borrow_mut().insert(field_name.clone(), the_class.new());
-            }
+        let mut fields: HashMap<String, Rc<RefCell<dyn JavaInstance>>> = HashMap::new();
+        for (field_name, _) in self.fields.iter() {
+//            let class = get_class(&field_class);
+            fields.insert(field_name.clone(), Rc::new(RefCell::new(NativeNullInstance {})));
         }
+
+        return Rc::new(RefCell::new(BytecodeInstance { class_name: self.get_name(), parent: Some(parent), fields: fields }));
     }
 
     fn get_name(&self) -> String {
@@ -130,11 +128,11 @@ impl JavaClass for BytecodeClass {
             }
         } else {
             let superclass = get_class(&self.superclass_name);
-            if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, args.len()); }
+            if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", superclass.get_name(), method_name, args.len()); }
 
             let parent = this.borrow().get_parent();
             match parent {
-                Some(p) => superclass.borrow().execute_method(sf, method_name, p, args),
+                Some(p) => superclass.execute_method(sf, method_name, p, args),
                 _ => panic!("Bytecode instance {} does not support method {}", self.get_name(), method_name)
             };
             
@@ -163,9 +161,9 @@ impl JavaClass for BytecodeClass {
             }
         } else {
             let superclass = get_class(&self.superclass_name);
-            if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", superclass.borrow().get_name(), method_name, nb_args); }
+            if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", superclass.get_name(), method_name, nb_args); }
 
-            superclass.borrow().execute_static_method(sf, method_name, nb_args);
+            superclass.execute_static_method(sf, method_name, nb_args);
         }
     }
 
@@ -184,7 +182,8 @@ impl BytecodeClass {
         if get_debug() >= 3 { data.print(); }
         data.skip(8);
 
-        let constant_pool_count: usize = data.get_u16size();
+        let constant_pool_count: usize = data.get_u16size() - 1;
+        if get_debug() >= 2 { println!("{} constants", constant_pool_count); }
 
         let mut constant_idx: usize = 1;
         let mut opcode;
@@ -203,80 +202,81 @@ impl BytecodeClass {
         let mut constants_double: HashMap<usize, ConstantDouble> = HashMap::new();
         let mut has_static_init = false;
 
-        while constant_idx < constant_pool_count {
+        while constant_idx <= constant_pool_count {
             opcode = data.get_u8();
 
             match opcode {
                 // CONSTANT_Utf8
                 1 => {
                     let constant_string = ConstantString::new(&mut data);
-                    if get_debug() >= 2 { constant_string.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_string.print(); }
                     constants_string.insert(constant_idx, constant_string);
                 },
                 // CONSTANT_Integer
                 3 => {
                     let constant_integer = ConstantInteger::new(&mut data);
-                    if get_debug() >= 2 { constant_integer.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_integer.print(); }
                     constants_integer.insert(constant_idx, constant_integer);
                 },
                 // CONSTANT_Float
                 4 => {
                     let constant_float = ConstantFloat::new(&mut data);
-                    if get_debug() >= 2 { constant_float.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_float.print(); }
                     constants_float.insert(constant_idx, constant_float);
                 },
                 // CONSTANT_Long
                 5 => {
                     let constant_long = ConstantLong::new(&mut data);
-                    if get_debug() >= 2 { constant_long.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_long.print(); }
                     constants_long.insert(constant_idx, constant_long);
+                    constant_idx += 1;
                 },
                 // CONSTANT_Double
                 6 => {
                     let constant_double = ConstantDouble::new(&mut data);
-                    if get_debug() >= 2 { constant_double.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_double.print(); }
                     constants_double.insert(constant_idx, constant_double);
                 },
                 // CONSTANT_Class
                 7 => {
                     let constant_class = ConstantClass::new(&mut data);
-                    if get_debug() >= 2 { constant_class.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_class.print(); }
                     constants_class.insert(constant_idx, constant_class);
                 },
                 // CONSTANT_String
                 8 => {
                     let constant_string_ref = ConstantStringRef::new(&mut data);
-                    if get_debug() >= 2 { constant_string_ref.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_string_ref.print(); }
                     constants_string_ref.insert(constant_idx, constant_string_ref);
                 },
                 // CONSTANT_Fieldref
                 9 => {
                     let constant_field = ConstantField::new(&mut data);
-                    if get_debug() >= 2 { constant_field.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_field.print(); }
                     constants_field.insert(constant_idx, constant_field);
                 },
                 // CONSTANT_Methodref
                 10 => {
                     let constant_method = ConstantMethod::new(&mut data);
-                    if get_debug() >= 2 { constant_method.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_method.print(); }
                     constants_method.insert(constant_idx, constant_method);
                 },
                 // CONSTANT_InterfaceMethodref
                 11 => {
                     let constant_method = ConstantMethod::new(&mut data);
-                    if get_debug() >= 2 { constant_method.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_method.print(); }
                     constants_method.insert(constant_idx, constant_method);
                 }
                 // CONSTANT_NameAndType
                 12 => {
                     let constant_name_type = ConstantNameType::new(&mut data);
-                    if get_debug() >= 2 { constant_name_type.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_name_type.print(); }
                     constants_name_type.insert(constant_idx, constant_name_type);
                 },
                 // CONSTANT_MethodHandle
                 15 => {
                     let constant_method_handle = ConstantMethodHandle::new(&mut data);
-                    if get_debug() >= 2 { constant_method_handle.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_method_handle.print(); }
                     constants_method_handle.insert(constant_idx, constant_method_handle);
                 },
                 // CONSTANT_MethodType
@@ -287,7 +287,7 @@ impl BytecodeClass {
                 // CONSTANT_InvokeDynamic
                 18 => {
                     let constant_dynamic = ConstantInvokeDynamic::new(&mut data);
-                    if get_debug() >= 2 { constant_dynamic.print(); }
+                    if get_debug() >= 2 { print!("#{}  ", constant_idx); constant_dynamic.print(); }
                     constants_dynamic.insert(constant_idx, constant_dynamic);
                 },
                 _ => panic!("Unknown constant code {} ({:#02x}) at offset {:#x}", opcode, opcode, data.offset)
@@ -344,10 +344,15 @@ impl BytecodeClass {
         if get_debug() >= 2 { println!("Super Class {}", superclass_name); }
 
         // interfaces_count
-        let _interfaces_count = data.get_u16size();
+        let interfaces_count = data.get_u16size();
+        if get_debug() >= 2 { println!("{} interfaces", interfaces_count); }
+        for _ in 0..interfaces_count {
+            let interface_method_idx = data.get_u16size();
+            if get_debug() >= 2 { println!("  - {}", interface_method_idx); }
+        }
 
         let static_fields: Rc<RefCell<HashMap<String, Rc<RefCell<dyn JavaInstance>>>>> = Rc::new(RefCell::new(HashMap::new()));
-        let mut static_fields_desc: HashMap<String, String> = HashMap::new();
+        let mut fields: HashMap<String, String> = HashMap::new();
 
         // fields_count
         let fields_count = data.get_u16size();
@@ -357,18 +362,35 @@ impl BytecodeClass {
             let field_idx = data.get_u16size();
             let field_name = match constants_string.get(&field_idx) {
                 Some(string) => string.value.clone(),
-                _ => panic!("Unknown string ID {}", field_idx)
+                _ => match constants_field.get(&field_idx) {
+                    Some(field) => field.field_name.clone(),
+                    _ => panic!("Unknown string ID {}", field_idx)
+                }
             };
             let field_descriptor_idx = data.get_u16size();
             let stat = if (field_access_flag & 8) == 8 { "  STATIC" } else { "" };
-            if get_debug() >= 2 { println!("Field [{}], type={}, access flag={} {}", field_name, field_descriptor_idx, field_access_flag, stat); }
+            if get_debug() >= 2 { println!("  Field [{}], type={}, access flag={} {}", field_name, field_descriptor_idx, field_access_flag, stat); }
+
+            // static fields
             if (field_access_flag & 8) == 8 {
                 match constants_string.get(&field_descriptor_idx) {
                     Some(string) => {
+                        match &string.value[0..1] {
+                            "I" => static_fields.borrow_mut().insert(field_name, Rc::new(RefCell::new(NativeIntegerInstance::new(0)))),
+                            "F" => static_fields.borrow_mut().insert(field_name, Rc::new(RefCell::new(NativeFloatInstance::new(0.0)))),
+                            _ => static_fields.borrow_mut().insert(field_name, Rc::new(RefCell::new(NativeNullInstance {})))
+                        }
+                    },
+                    _ => panic!("Unknown string index {}", field_descriptor_idx)
+                };
+            // normal fields
+            } else {
+                match constants_string.get(&field_descriptor_idx) {
+                    Some(string) => {
                         if string.value.starts_with("L") && string.value.ends_with(";") {
-                            static_fields_desc.insert(field_name, string.value[1..string.value.len()-1].to_string());
+                            fields.insert(field_name, string.value[1..string.value.len()-1].to_string());
                         } else if string.value.starts_with("[") {
-                            static_fields.borrow_mut().insert(field_name, Rc::new(RefCell::new(NativeArrayInstance { values: Rc::new(RefCell::new(Vec::new())) })));
+                            fields.insert(field_name, "java.lang.ArrayList".to_string());
                         }
                     },
                     _ => panic!("Unknown string index {}", field_descriptor_idx)
@@ -490,8 +512,8 @@ impl BytecodeClass {
             constants_dynamic,
             bootstrap_methods,
             methods: Rc::new(methods),
+            fields,
             static_fields,
-            static_fields_desc,
             has_static_init
         }
     }

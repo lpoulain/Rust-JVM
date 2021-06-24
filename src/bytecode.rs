@@ -1721,7 +1721,7 @@ pub struct InstrGetStatic { class_name: String, field_name: String, type_desc: S
 impl ByteCodeInstruction for InstrGetStatic {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let class = get_class(&self.class_name);
-        sf.push(class.borrow().get_static_object(&self.field_name));
+        sf.push(class.get_static_object(&self.field_name));
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      getstatic {}.{} -> {}", self.class_name, self.field_name, self.type_desc); }
@@ -1730,7 +1730,7 @@ pub struct InstrPutStatic { class_name: String, field_name: String, type_desc: S
 impl ByteCodeInstruction for InstrPutStatic {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let class = get_class(&self.class_name);
-        class.borrow().put_static_object(&self.field_name, sf.pop());
+        class.put_static_object(&self.field_name, sf.pop());
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      putstatic {}.{} <- {}", self.class_name, self.field_name, self.type_desc); }
@@ -1767,7 +1767,7 @@ impl ByteCodeInstruction for InstrInvokeVirtual {
         }
         let this = sf.pop();
         let class = get_class(&self.class_name);
-        class.borrow().execute_method(sf, &self.method_name, this, args);
+        class.execute_method(sf, &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokevirtual {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
@@ -1784,7 +1784,7 @@ impl ByteCodeInstruction for InstrInvokeSpecial {
         }
         let this = sf.pop();
         let class = get_class(&self.class_name);
-        class.borrow().execute_method(sf,  &self.method_name, this, args);
+        class.execute_method(sf,  &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokespecial {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
@@ -1794,7 +1794,7 @@ pub struct InstrInvokeStatic { class_name: String, method_name: String, type_des
 impl ByteCodeInstruction for InstrInvokeStatic {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let class = get_class(&self.class_name);
-        class.borrow().execute_static_method(sf, &self.method_name, self.nb_args);
+        class.execute_static_method(sf, &self.method_name, self.nb_args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokestatic {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
@@ -1810,7 +1810,7 @@ impl ByteCodeInstruction for InstrInvokeInterface {
         }
         let this = sf.pop();
         let class = get_class(&self.class_name);
-        class.borrow_mut().execute_method(sf, &self.method_name, this, args);
+        class.execute_method(sf, &self.method_name, this, args);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokeinterface {}.{}{}(<{} arguments>) {}", self.class_name, self.method_name, self.type_desc, self.nb_args, self.count); }
@@ -1826,7 +1826,7 @@ pub struct InstrInvokeDynamic {
 impl ByteCodeInstruction for InstrInvokeDynamic {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let class = get_class(&self.class_name);
-        let the_class = class.borrow();
+        let the_class = class;
         let bootstrap = match the_class.get_bootstrap_method(self.bootstrap_method_idx) {
             Some(bootstrap) => bootstrap,
             _ => panic!("Unknown bootstrap method {}", self.bootstrap_method_idx)
@@ -1845,7 +1845,7 @@ impl ByteCodeInstruction for InstrInvokeDynamic {
         type_desc.push_str(")V");
 
         let class = get_class(&bootstrap.class_name);
-        class.borrow_mut().execute_static_method(sf, &bootstrap.method_name, self.method_nb_args);
+        class.execute_static_method(sf, &bootstrap.method_name, self.method_nb_args);
 
         return InstrNextAction::NEXT;
     }
@@ -1856,7 +1856,7 @@ pub struct InstrNew { class_name: String }
 impl ByteCodeInstruction for InstrNew {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let class = get_class(&self.class_name);
-        sf.push(class.borrow().new());
+        sf.push(class.new());
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      new {}", self.class_name); }

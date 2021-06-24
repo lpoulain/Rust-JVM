@@ -10,11 +10,15 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+use std::time::Duration;
 
 extern crate clap;
 use clap::{Arg, App};
 use jvm::JavaInstance;
-use native_java_classes::NativeObjectInstance;
+use native_java_classes::{NativeGenericClass, NativeObjectInstance};
 use native_java_classes::NativeStringInstance;
 
 use crate::java_class::JavaClass;
@@ -23,12 +27,12 @@ use crate::native_java_classes::register_native_classes;
 use crate::jvm::StackFrame;
 
 struct Classes {
-    classes: Option<HashMap<String, Rc<RefCell<dyn JavaClass>>>>
+    classes: Option<HashMap<String, Arc<dyn JavaClass>>>
 }
 
 impl Classes {
-    fn add(&mut self, value: Rc<RefCell<dyn JavaClass>>) {
-        let key = value.borrow().get_name();
+    fn add(&mut self, value: Arc<dyn JavaClass>) {
+        let key = value.get_name();
         self.classes.as_mut().unwrap().insert(key, value);
     }
 
@@ -36,8 +40,8 @@ impl Classes {
         self.classes.as_ref().unwrap().contains_key(class_name)
     }
 
-    fn all(&self) -> Vec<Rc<RefCell<dyn JavaClass>>> {
-        let mut classes: Vec<Rc<RefCell<dyn JavaClass>>> = Vec::new();
+    fn all(&self) -> Vec<Arc<dyn JavaClass>> {
+        let mut classes: Vec<Arc<dyn JavaClass>> = Vec::new();
         
         let map = match self.classes.as_ref() {
             Some(m) => m,
@@ -51,8 +55,10 @@ impl Classes {
         classes
     }
 
-    fn add_bytecode(&mut self, name: String) -> Rc<RefCell<dyn JavaClass>> {
-        let class = Rc::new(RefCell::new(BytecodeClass::parse(&name)));
+    fn add_bytecode(&mut self, name: String) -> Arc<dyn JavaClass> {
+//        let ptr: Arc<dyn JavaClass> = Arc::new(BytecodeClass::parse(&name));
+
+        let class = Arc::new(BytecodeClass::parse(&name));
         self.classes.as_mut().unwrap().insert(name.clone(), class.clone());
         class
     }
@@ -63,7 +69,7 @@ static mut CLASSES: Classes = Classes { classes: None };
 static mut DEBUG: u8 = 0;
 
 pub fn get_debug() -> u8 { unsafe { DEBUG } }
-pub fn get_class(class_name: &String) -> Rc<RefCell<dyn JavaClass>> {
+pub fn get_class(class_name: &String) -> Arc<dyn JavaClass> {
     unsafe {
         match &CLASSES.classes {
             Some(map) => {
@@ -78,11 +84,13 @@ pub fn get_class(class_name: &String) -> Rc<RefCell<dyn JavaClass>> {
         }
     }
 }
-pub fn get_classes() -> Vec<Rc<RefCell<dyn JavaClass>>> {
+pub fn get_classes() -> Vec<Arc<dyn JavaClass>> {
     unsafe {
         CLASSES.all()
     }
 }
+
+static GLOBAL_THREAD_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 fn main() {
     // Parses arguments
@@ -126,9 +134,13 @@ fn main() {
 
     while classes_to_load.len() > 0 {
         for class_name in classes_to_load.clone().iter() {
-            let java_class = unsafe { CLASSES.add_bytecode(class_name.to_string()) };
+            let java_class: Arc<dyn JavaClass> = if class_name.starts_with("java/lang") {
+                Arc::new(NativeGenericClass { name: class_name.clone() })
+            } else {
+                unsafe { CLASSES.add_bytecode(class_name.to_string()) }
+            };
 
-            for dependent_class_name in java_class.borrow().get_dependent_classes().iter() {
+            for dependent_class_name in java_class.get_dependent_classes().iter() {
                 if !dependent_class_name.starts_with("[") && unsafe { !CLASSES.has(&dependent_class_name) } {
                     classes_to_load.insert(dependent_class_name.clone());
                 }
@@ -152,12 +164,12 @@ fn main() {
     let mut sf = StackFrame::new(variables);
     sf.push_array(Rc::new(RefCell::new(java_args)));
 
-    let mut classes = get_classes();
-    let mut main_classes: Vec<Rc<RefCell<dyn JavaClass>>> = Vec::new();
-    let mut hidden_classes: Vec<Rc<RefCell<dyn JavaClass>>> = Vec::new();
+    let classes = get_classes();
+    let mut main_classes: Vec<Arc<dyn JavaClass>> = Vec::new();
+    let mut hidden_classes: Vec<Arc<dyn JavaClass>> = Vec::new();
 
     for class in classes.iter() {
-        let is_hidden = class.borrow().get_name().contains("$");
+        let is_hidden = class.get_name().contains("$");
         if is_hidden {
             hidden_classes.push(class.clone());
         } else {
@@ -165,26 +177,27 @@ fn main() {
         }
     }
 
-    for class in classes.iter_mut() {
-        class.borrow_mut().init_static_fields();
-    }
-
     for class in main_classes.iter_mut() {
-        if class.borrow().has_static_init() {
-            class.borrow().execute_static_method(&mut sf, &"<clinit>".to_string(), 0);
+        if class.has_static_init() {
+            class.execute_static_method(&mut sf, &"<clinit>".to_string(), 0);
         }
     }
 
     for class in hidden_classes.iter_mut() {
-        if class.borrow().has_static_init() {
-            class.borrow().execute_static_method(&mut sf, &"<clinit>".to_string(), 0);
+        if class.has_static_init() {
+            class.execute_static_method(&mut sf, &"<clinit>".to_string(), 0);
         }
     }
 
     let java_class = get_class(&String::from(class_name));
-    if debug >= 2 { java_class.borrow().print(); }
+    if debug >= 2 { java_class.print(); }
 
-    java_class.borrow().execute_static_method(&mut sf, &"main".to_string(), 1);
+    java_class.execute_static_method(&mut sf, &"main".to_string(), 1);
     if debug >= 1 { sf.print_stack(); }
     if debug >= 2 { sf.print_variables(); }
+
+     // Wait for other threads to finish.
+    while GLOBAL_THREAD_COUNT.load(Ordering::SeqCst) != 0 {
+        thread::sleep(Duration::from_millis(1)); 
+    }
 }

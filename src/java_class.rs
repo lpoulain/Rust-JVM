@@ -50,7 +50,6 @@ pub trait JavaClass {
     fn new(&self) -> Rc<RefCell<dyn JavaInstance>> { panic!("Class {} cannot be instantiated", self.get_name()); }
     fn has_static_init(&self) -> bool { false }
     fn get_dependent_classes(&self) -> Vec<String> { Vec::new() }
-    fn init_static_fields(&mut self) {}
     fn get_bootstrap_method(&self, _idx: usize) -> Option<&AttributeBootstrapMethod> { return None; }
     fn get_name(&self) -> String;
     fn print(&self) { }

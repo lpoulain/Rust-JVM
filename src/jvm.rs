@@ -21,7 +21,7 @@ pub trait JavaInstance {
     fn get_long(&self) -> i64 { panic!("{} cannot be converted into an long", self.get_class_name()); }
     fn get_float(&self) -> f32 { panic!("{} cannot be converted into a float", self.get_class_name()); }
     fn get_double(&self) -> f64 { panic!("{} cannot be converted into a double", self.get_class_name()); }
-    fn get_string(&self) -> String { panic!("{} cannot be converted into a double", self.get_class_name()); }
+    fn get_string(&self) -> String { panic!("{} cannot be converted into a string", self.get_class_name()); }
     fn get_bool(&self) -> bool { panic!("{} cannot be converted into a boolean", self.get_class_name()); }
     fn get_short(&self) -> i16 { panic!("{} cannot be converted into a short", self.get_class_name()); }
     fn get_byte(&self) -> u8 { panic!("{} cannot be converted into a byte", self.get_class_name()); }

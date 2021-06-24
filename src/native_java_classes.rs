@@ -1,7 +1,14 @@
+use core::time;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::thread;
 
-use crate::CLASSES;
+use rand::Rng;
+
+use crate::{CLASSES, GLOBAL_THREAD_COUNT, get_class};
 use crate::StackFrame;
 use crate::jvm::JavaInstance;
 use crate::java_class::JavaClass;
@@ -11,21 +18,23 @@ use crate::streams::NativeStreamInstance;
 
 pub fn register_native_classes() {
     unsafe {
-        CLASSES.add(Rc::new(RefCell::new(NativeObjectClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativePrintStreamClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeSystemClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeStringClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeIntegerClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeArraysClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeListClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeArrayListClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeStreamClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeMathClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeLambdaMetafactoryClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeEnumClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeNoSuchFieldErrorClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeMethodHandlesLookupClass {})));
-        CLASSES.add(Rc::new(RefCell::new(NativeMethodHandlesClass {})));
+        CLASSES.add(Arc::new(NativeObjectClass {}));
+        CLASSES.add(Arc::new(NativePrintStreamClass {}));
+        CLASSES.add(Arc::new(NativeSystemClass {}));
+        CLASSES.add(Arc::new(NativeStringClass {}));
+        CLASSES.add(Arc::new(NativeIntegerClass {}));
+        CLASSES.add(Arc::new(NativeArraysClass {}));
+        CLASSES.add(Arc::new(NativeListClass {}));
+        CLASSES.add(Arc::new(NativeArrayListClass {}));
+        CLASSES.add(Arc::new(NativeStreamClass {}));
+        CLASSES.add(Arc::new(NativeMathClass {}));
+        CLASSES.add(Arc::new(NativeLambdaMetafactoryClass {}));
+        CLASSES.add(Arc::new(NativeEnumClass {}));
+        CLASSES.add(Arc::new(NativeNoSuchFieldErrorClass {}));
+        CLASSES.add(Arc::new(NativeMethodHandlesLookupClass {}));
+        CLASSES.add(Arc::new(NativeMethodHandlesClass {}));
+        CLASSES.add(Arc::new(NativeStringBuilderClass {}));
+        CLASSES.add(Arc::new(NativeThreadClass {}));
     }
 }
 
@@ -174,15 +183,10 @@ impl NativeIntegerInstance {
 }
 
 impl JavaInstance for NativeIntegerInstance {
-    fn get_class_name(&self) -> String {
-        return "java/lang/Integer".to_string();
-    }
-    fn get_int(&self) -> i32 {
-        return self.value;
-    }
-    fn print(&self) {
-        print!("{}", self.value);
-    }
+    fn get_class_name(&self) -> String { "java/lang/Integer".to_string() }
+    fn get_int(&self) -> i32 { self.value }
+    fn get_string(&self) -> String { self.value.to_string() }
+    fn print(&self) { print!("{}", self.value); }
 }
 
 pub struct NativeIntegerClass { }
@@ -222,15 +226,9 @@ impl NativeLongInstance {
 }
 
 impl JavaInstance for NativeLongInstance {
-    fn get_class_name(&self) -> String {
-        return "java/lang/Long".to_string();
-    }
-    fn get_long(&self) -> i64 {
-        return self.value;
-    }
-    fn print(&self) {
-        print!("{}", self.value);
-    }
+    fn get_class_name(&self) -> String { "java/lang/Long".to_string() }
+    fn get_long(&self) -> i64 { self.value }
+    fn print(&self) { print!("{}l", self.value); }
 }
 
 /////////////////// java.lang.Short
@@ -244,14 +242,10 @@ impl NativeShortInstance {
 }
 
 impl JavaInstance for NativeShortInstance {
-    fn get_class_name(&self) -> String {
-        return "java/lang/Short".to_string();
-    }
+    fn get_class_name(&self) -> String { "java/lang/Short".to_string() }
     fn get_short(&self) -> i16 { self.value }
     fn get_int(&self) -> i32 { self.value as i32 }
-    fn print(&self) {
-        print!("{}", self.value);
-    }
+    fn print(&self) { print!("{}", self.value); }
 }
 
 /////////////////// java.lang.Byte
@@ -427,6 +421,9 @@ impl NativeStringInstance {
 pub struct NativeStringClass { }
 
 impl JavaClass for NativeStringClass {
+    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
+        Rc::new(RefCell::new(NativeStringInstance { value: "".to_string() }))
+    }
     fn get_name(&self) -> String {
         return "java/lang/String".to_string();
     }
@@ -478,6 +475,39 @@ impl JavaClass for NativeStringClass {
 
         panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
     }
+}
+
+/////////////////// java.lang.StringBuilder
+
+struct NativeStringBuilderInstance { content: String }
+impl JavaInstance for NativeStringBuilderInstance {
+    fn get_class_name(&self) -> String { "java/lang/StringBuilder".to_string() }
+
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "<init>" => { },
+            "append" => {
+                let string = args[0].borrow().get_string();
+                self.content.push_str(&string);
+                sf.push(this.clone());
+            },
+            "toString" => {
+                sf.push_string(self.content.clone());
+            },
+            _ => panic!("Native class {} does not have method [{}]", self.get_class_name(), method_name)
+        };
+    }
+}
+
+struct NativeStringBuilderClass {}
+
+impl JavaClass for NativeStringBuilderClass {
+    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
+        Rc::new(RefCell::new(NativeStringBuilderInstance { content: "".to_string() }))
+    }
+
+    fn get_name(&self) -> String { "java/lang/StringBuilder".to_string() }
+    fn print(&self) { println!("Native StringBuilder class"); }
 }
 
 /////////////////// java.util.Arrays
@@ -708,6 +738,106 @@ impl JavaClass for NativeEnumClass {
     }
 }
 
+/////////////////// java.lang.Thread
+
+struct NativeThreadInstance {
+    object: Rc<RefCell<dyn JavaInstance>>,
+    name: String
+}
+
+struct ThreadObjects {
+    objects: Option<HashMap<i32, Rc<RefCell<dyn JavaInstance>>>>
+}
+
+impl ThreadObjects {
+    fn add(&mut self, idx: i32, object: Rc<RefCell<dyn JavaInstance>>) {
+        unsafe {
+            match self.objects.as_mut() {
+                Some(map) => { map.insert(idx, object.clone()); },
+                None => {
+                    let mut mp: HashMap<i32, Rc<RefCell<dyn JavaInstance>>> = HashMap::new();
+                    mp.insert(idx, object.clone());
+                    THREAD_OBJECTS.objects = Some(mp);
+                }
+            };
+        }
+    }
+}
+
+fn new_thread(id: i32) {
+    let this = get_thread_object(id);
+    let var = Rc::new(RefCell::new(NativeObjectInstance {}));
+    let variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+        var.clone(), var.clone(), var.clone(), var.clone(),
+        var.clone(), var.clone(), var.clone(), var.clone(),
+        var.clone(), var.clone(), var.clone(), var.clone()];
+
+    let mut sf = StackFrame::new(variables);
+
+    let class = get_class(&this.borrow().get_class_name());
+    class.execute_method(&mut sf, &"run".to_string(), this.clone(), Vec::new());
+}
+
+static mut THREAD_OBJECTS: ThreadObjects = ThreadObjects { objects: None };
+
+fn get_thread_object(idx: i32) -> Rc<RefCell<dyn JavaInstance>> {
+    unsafe {
+        match &THREAD_OBJECTS.objects {
+            Some(map) => map.get(&idx).unwrap().clone(),
+            None => panic!("THREAD_OBJECTS not initialized")
+        }
+    }
+}
+
+impl JavaInstance for NativeThreadInstance {
+    fn get_class_name(&self) -> String { "java/lang/Thread".to_string() }
+
+    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "<init>" => {
+                self.name = args[0].borrow().get_string();
+                self.object = args[1].clone();
+            },
+            "start" => {
+//                let class = get_class(&self.object.borrow().get_class_name());
+//                class.borrow().execute_method(sf, &"run".to_string(), self.object.clone(), Vec::new());
+                let mut rng = rand::thread_rng();
+                let idx = rng.gen::<i32>();
+
+                unsafe { THREAD_OBJECTS.add(idx, self.object.clone()); };
+                GLOBAL_THREAD_COUNT.fetch_add(1, Ordering::SeqCst);
+                thread::spawn(move || {
+                    new_thread(idx);
+                    GLOBAL_THREAD_COUNT.fetch_sub(1, Ordering::SeqCst);
+                });
+            },
+            _ => panic!("Class instance {} does not support method {}", self.get_class_name(), method_name)
+        };
+    }
+}
+
+struct NativeThreadClass {}
+
+impl JavaClass for NativeThreadClass {
+    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
+        Rc::new(RefCell::new(NativeThreadInstance { object: Rc::new(RefCell::new(NativeNullInstance {})), name: "".to_string() } ))
+    }
+
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+        match &method_name[..] {
+            "sleep" => {
+                let nb_millis = sf.pop_long() as u64;
+                let duration = time::Duration::from_millis(nb_millis);
+                thread::sleep(duration);
+            },
+            _ => panic!("Class instance {} does not support static method {}", self.get_name(), method_name)
+        }
+    }
+
+    fn get_name(&self) -> String { "java/lang/Thread".to_string() }
+    fn print(&self) { println!("Native Thread class"); }
+}
+
 /////////////////// java.lang.NoSuchFieldError
 
 struct NativeNoSuchFieldErrorClass {}
@@ -748,4 +878,11 @@ impl JavaClass for NativeMethodHandlesClass {
     fn print(&self) {
         println!("Native MethodHandles class");
     }
+}
+
+pub struct NativeGenericClass { pub name: String }
+
+impl JavaClass for NativeGenericClass {
+    fn get_name(&self) -> String { self.name.clone() }
+    fn print(&self) { println!("Native {} class", self.name); }
 }

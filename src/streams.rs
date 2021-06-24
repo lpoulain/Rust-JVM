@@ -70,7 +70,7 @@ impl JavaInstance for NativeStreamInstance {
                     match current_function.borrow_mut().next_object(0, self, sf) {
                         Some(object) => {
                             sf.push(object.clone());
-                            class.borrow().execute_static_method(sf, &consumer.borrow().get_method_name(), 1);
+                            class.execute_static_method(sf, &consumer.borrow().get_method_name(), 1);
                         },
                         None => break
                     }
@@ -127,7 +127,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
             let class_name = sf.pop_string();
 
             let class = get_class(&class_name);
-            let the_class = class.borrow();
+            let the_class = class;
 
             let bootstrap_method = match the_class.get_method_handles().get(&(arg2 as usize)) {
                 Some(method) => method,
@@ -212,7 +212,7 @@ impl StreamFunction for NativePredicateInstance {
                     match object {
                         Some(obj) => {
                             sf.push(obj.clone());
-                            class.borrow().execute_static_method(sf, &self.method_name, 1);
+                            class.execute_static_method(sf, &self.method_name, 1);
                             let is_predicate_valid = sf.pop_bool();
                             if is_predicate_valid {
                                 return Some(obj.clone());
@@ -274,7 +274,7 @@ impl StreamFunction for NativeFunctionInstance {
                 match object {
                     Some(obj) => {
                         sf.push(obj);
-                        class.borrow().execute_static_method(sf, &self.method_name, 1);
+                        class.execute_static_method(sf, &self.method_name, 1);
                         return Some(sf.pop());
                     },
                     None => return None
