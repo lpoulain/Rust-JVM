@@ -1,5 +1,4 @@
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 
 use crate::get_class;
 use crate::jvm::JavaInstance;
@@ -9,20 +8,20 @@ use crate::java_class::JavaClass;
 /////////////////// java.util.stream.Stream
 
 pub trait StreamFunction {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>>;
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Arc<Mutex<dyn JavaInstance>>>;
     fn get_class_name(&self) -> String { return "".to_string(); }
     fn get_method_name(&self) -> String { return "".to_string(); }
     fn print(&self);
 }
 
 pub struct NativeStreamData {
-    data: Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>>,
+    data: Arc<Mutex<Vec<Arc<Mutex<dyn JavaInstance>>>>>,
     idx: usize
 }
 
 impl NativeStreamData {
-    pub fn new(data: Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>>) -> Rc<RefCell<dyn StreamFunction>> {
-        Rc::new(RefCell::new(NativeStreamData {
+    pub fn new(data: Arc<Mutex<Vec<Arc<Mutex<dyn JavaInstance>>>>>) -> Arc<Mutex<dyn StreamFunction>> {
+        Arc::new(Mutex::new(NativeStreamData {
             data,
             idx: 0
         }))
@@ -30,8 +29,8 @@ impl NativeStreamData {
 }
 
 impl StreamFunction for NativeStreamData {
-    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
-        let object = match self.data.borrow().get(self.idx) {
+    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame) -> Option<Arc<Mutex<dyn JavaInstance>>> {
+        let object = match self.data.lock().unwrap().get(self.idx) {
             Some(obj) => Some(obj.clone()),
             _ => None
         };
@@ -44,33 +43,33 @@ impl StreamFunction for NativeStreamData {
 }
 
 pub struct NativeStreamInstance {
-    pub operations: Vec<Rc<RefCell<dyn StreamFunction>>>
+    pub operations: Vec<Arc<Mutex<dyn StreamFunction>>>
 }
 impl JavaInstance for NativeStreamInstance {
     fn get_class_name(&self) -> String {
         return "java/util/stream/Stream".to_string();
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "filter" | "map" => {
-                let stream_function = args.get(0).unwrap().borrow().get_stream_function();
+                let stream_function = args.get(0).unwrap().lock().unwrap().get_stream_function();
                 self.operations.insert(0, stream_function);
                 sf.push(this.clone());
             },
             "forEach" => {
                 let arg = args.get(0).unwrap();
-                let consumer = arg.borrow().get_stream_function();
+                let consumer = arg.lock().unwrap().get_stream_function();
                 let current_function = match self.operations.get(0) {
                     Some(function) => &*function,
                     _ => panic!("Stream.{}(): missing function 0", method_name)
                 };
-                let class = get_class(&consumer.borrow().get_class_name());
+                let class = get_class(&consumer.lock().unwrap().get_class_name());
 
                 loop {
-                    match current_function.borrow_mut().next_object(0, self, sf) {
+                    match current_function.lock().unwrap().next_object(0, self, sf) {
                         Some(object) => {
                             sf.push(object.clone());
-                            class.execute_static_method(sf, &consumer.borrow().get_method_name(), 1);
+                            class.execute_static_method(sf, &consumer.lock().unwrap().get_method_name(), 1);
                         },
                         None => break
                     }
@@ -82,9 +81,9 @@ impl JavaInstance for NativeStreamInstance {
 }
 
 impl NativeStreamInstance {
-    pub fn new(data: Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>>) -> NativeStreamInstance {
-        let list: Rc<RefCell<dyn StreamFunction>> = NativeStreamData::new(data);
-        let op: Vec<Rc<RefCell<dyn StreamFunction>>> = vec![list];
+    pub fn new(data: Arc<Mutex<Vec<Arc<Mutex<dyn JavaInstance>>>>>) -> NativeStreamInstance {
+        let list: Arc<Mutex<dyn StreamFunction>> = NativeStreamData::new(data);
+        let op: Vec<Arc<Mutex<dyn StreamFunction>>> = vec![list];
         NativeStreamInstance {
             operations: op
         }
@@ -145,7 +144,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                         method_name,
                         type_desc
                     };
-                    sf.push(Rc::new(RefCell::new(object)));
+                    sf.push(Arc::new(Mutex::new(object)));
                 },
                 "apply" => {
                     let object = NativeFunctionInstance {
@@ -153,7 +152,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                         method_name,
                         type_desc
                     };
-                    sf.push(Rc::new(RefCell::new(object)));
+                    sf.push(Arc::new(Mutex::new(object)));
                 },
                 "accept" => {
                     let object = NativeConsumerInstance {
@@ -161,7 +160,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                         method_name,
                         type_desc
                     };
-                    sf.push(Rc::new(RefCell::new(object)));
+                    sf.push(Arc::new(Mutex::new(object)));
                 },
                 _ => panic!("LambdaMetafactory.metafactory(): Unsupported command {}", action)
             };
@@ -183,8 +182,8 @@ impl JavaInstance for NativePredicateInstance {
     fn get_class_name(&self) -> String {
         return "java/lang/util/function/Predicate".to_string();
     }
-    fn get_stream_function(&self) -> Rc<RefCell<dyn StreamFunction>> {
-        return Rc::new(RefCell::new(self.clone()));
+    fn get_stream_function(&self) -> Arc<Mutex<dyn StreamFunction>> {
+        return Arc::new(Mutex::new(self.clone()));
     }
 }
 
@@ -201,13 +200,13 @@ impl Clone for NativePredicateInstance {
 pub struct NativePredicateClass { }
 
 impl StreamFunction for NativePredicateInstance {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Arc<Mutex<dyn JavaInstance>>> {
         match stream.operations.get(function_idx + 1) {
             Some(function) => {
                 let class = get_class(&self.class_name);
 
                 loop {
-                    let object = (**function).borrow_mut().next_object(function_idx + 1, &stream, sf);
+                    let object = (**function).lock().unwrap().next_object(function_idx + 1, &stream, sf);
 
                     match object {
                         Some(obj) => {
@@ -248,8 +247,8 @@ impl JavaInstance for NativeFunctionInstance {
     fn get_class_name(&self) -> String {
         return "java/lang/util/function/Function".to_string();
     }
-    fn get_stream_function(&self) -> Rc<RefCell<dyn StreamFunction>> {
-        return Rc::new(RefCell::new(self.clone()));
+    fn get_stream_function(&self) -> Arc<Mutex<dyn StreamFunction>> {
+        return Arc::new(Mutex::new(self.clone()));
     }
 }
 
@@ -264,12 +263,12 @@ impl Clone for NativeFunctionInstance {
 }
 
 impl StreamFunction for NativeFunctionInstance {
-    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
+    fn next_object(&mut self, function_idx: usize, stream: &NativeStreamInstance, sf: &mut StackFrame) -> Option<Arc<Mutex<dyn JavaInstance>>> {
         match stream.operations.get(function_idx + 1) {
             Some(function) => {
                 let class = get_class(&self.class_name);
 
-                let object = function.borrow_mut().next_object(function_idx + 1, &stream, sf);
+                let object = function.lock().unwrap().next_object(function_idx + 1, &stream, sf);
 
                 match object {
                     Some(obj) => {
@@ -308,13 +307,13 @@ impl JavaInstance for NativeConsumerInstance {
     fn get_class_name(&self) -> String {
         return "java/lang/util/function/Consumer".to_string();
     }
-    fn get_stream_function(&self) -> Rc<RefCell<dyn StreamFunction>> {
-        return Rc::new(RefCell::new(self.clone()));
+    fn get_stream_function(&self) -> Arc<Mutex<dyn StreamFunction>> {
+        return Arc::new(Mutex::new(self.clone()));
     }
 }
 
 impl StreamFunction for NativeConsumerInstance {
-    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame) -> Option<Rc<RefCell<dyn JavaInstance>>> {
+    fn next_object(&mut self, _function_idx: usize, _stream: &NativeStreamInstance, _sf: &mut StackFrame) -> Option<Arc<Mutex<dyn JavaInstance>>> {
         return None;
     }
 

@@ -3,7 +3,7 @@ A far-from-complete Java Virtual Machine written in Rust
 
 ## What is supported
 
-At this point it is a very primitive JVM. The files in the `java` folder (`Hello.java`, `Arithm.java`, `Streams.java`, `Person.java` and `Mandelbrot.java`) show what is currently being supported.
+At this point it is a very primitive JVM. The files in the `java` folder (`Hello.java`, `Arithm.java`, `Streams.java`, `Person.java`. `TestThread.java` and `Mandelbrot.java`) show what is currently being supported.
 
 See also the following to understand more about Java/Scala/Kotlin code gets converted into bytecode instructions:
 
@@ -45,6 +45,24 @@ Will or Kevin?
 > ./target/debug/jvm Streams Alice Bob Charlie Anna Delta
 alice
 anna
+
+> ./target/debug/jvm TestThread
+Creating Thread-1
+Starting Thread-1
+Creating Thread-2
+Running Thread-1
+Starting Thread-2
+Thread: Thread-1, 4
+Running Thread-2
+Thread: Thread-2, 4
+Thread: Thread-1, 3
+Thread: Thread-2, 3
+Thread: Thread-1, 2
+Thread: Thread-2, 2
+Thread: Thread-1, 1
+Thread: Thread-2, 1
+Thread Thread-1 exiting.
+Thread Thread-2 exiting.
 
 > ./target/release/jvm Mandelbrot
 :::::::::::::::::::::::=======================***************************************===================================

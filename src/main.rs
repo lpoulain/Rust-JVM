@@ -6,11 +6,9 @@ mod native_java_classes;
 mod streams;
 mod bytecode_test;
 
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
@@ -18,7 +16,7 @@ use std::time::Duration;
 extern crate clap;
 use clap::{Arg, App};
 use jvm::JavaInstance;
-use native_java_classes::{NativeGenericClass, NativeObjectInstance};
+use native_java_classes::{NativeGenericClass, NativeNullInstance};
 use native_java_classes::NativeStringInstance;
 
 use crate::java_class::JavaClass;
@@ -150,19 +148,19 @@ fn main() {
         }
     }
 
-    let mut java_args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+    let mut java_args: Vec<Arc<Mutex<dyn JavaInstance>>> = Vec::new();
     for i in 0..arguments.len() {
-        java_args.push(Rc::new(RefCell::new(NativeStringInstance::new(String::from(arguments[i])))));
+        java_args.push(Arc::new(Mutex::new(NativeStringInstance::new(String::from(arguments[i])))));
     }
 
-    let var = Rc::new(RefCell::new(NativeObjectInstance {}));
-    let variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+    let var = Arc::new(Mutex::new(NativeNullInstance {}));
+    let variables: [Arc<Mutex<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
         var.clone(), var.clone(), var.clone(), var.clone(),
         var.clone(), var.clone(), var.clone(), var.clone(),
         var.clone(), var.clone(), var.clone(), var.clone()];
 
     let mut sf = StackFrame::new(variables);
-    sf.push_array(Rc::new(RefCell::new(java_args)));
+    sf.push_array(Arc::new(Mutex::new(java_args)));
 
     let classes = get_classes();
     let mut main_classes: Vec<Arc<dyn JavaClass>> = Vec::new();

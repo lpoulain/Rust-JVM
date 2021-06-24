@@ -2,7 +2,10 @@ use std::fs;
 use std::io::Read;
 use std::fs::File;
 use std::path::Path;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::collections::HashMap;
 
 use crate::bytecode::InstrNextAction;
 use crate::get_class;
@@ -12,7 +15,6 @@ use crate::jvm::StackFrame;
 use crate::native_java_classes::NativeFloatInstance;
 use crate::native_java_classes::NativeIntegerInstance;
 use crate::native_java_classes::NativeNullInstance;
-use crate::native_java_classes::NativeObjectInstance;
 use crate::{bytecode::ByteCode, jvm::JavaInstance};
 use crate::java_class::BytecodeInstance;
 
@@ -30,22 +32,22 @@ pub struct BytecodeClass {
     methods: Rc<HashMap<String, ByteCode>>,
     pub bootstrap_methods: Vec<AttributeBootstrapMethod>,
     fields: HashMap<String, String>,
-    static_fields: Rc<RefCell<HashMap<String, Rc<RefCell<dyn JavaInstance>>>>>,
+    static_fields: Arc<Mutex<HashMap<String, Arc<Mutex<dyn JavaInstance>>>>>,
     has_static_init: bool
 }
 
 impl JavaClass for BytecodeClass {
-    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
         let superclass = get_class(&self.superclass_name);
         let parent = superclass.new();
 
-        let mut fields: HashMap<String, Rc<RefCell<dyn JavaInstance>>> = HashMap::new();
+        let mut fields: HashMap<String, Arc<Mutex<dyn JavaInstance>>> = HashMap::new();
         for (field_name, _) in self.fields.iter() {
 //            let class = get_class(&field_class);
-            fields.insert(field_name.clone(), Rc::new(RefCell::new(NativeNullInstance {})));
+            fields.insert(field_name.clone(), Arc::new(Mutex::new(NativeNullInstance {})));
         }
 
-        return Rc::new(RefCell::new(BytecodeInstance { class_name: self.get_name(), parent: Some(parent), fields: fields }));
+        return Arc::new(Mutex::new(BytecodeInstance { class_name: self.get_name(), parent: Some(parent), fields: fields }));
     }
 
     fn get_name(&self) -> String {
@@ -102,12 +104,12 @@ impl JavaClass for BytecodeClass {
         }
     }
 
-    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         if self.methods.contains_key(method_name) {
             if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
 
-            let var = Rc::new(RefCell::new(NativeObjectInstance {}));
-            let mut variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+            let var = Arc::new(Mutex::new(NativeNullInstance {}));
+            let mut variables: [Arc<Mutex<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
                 var.clone(), var.clone(), var.clone(), var.clone(),
                 var.clone(), var.clone(), var.clone(), var.clone(),
                 var.clone(), var.clone(), var.clone(), var.clone()];
@@ -130,7 +132,7 @@ impl JavaClass for BytecodeClass {
             let superclass = get_class(&self.superclass_name);
             if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", superclass.get_name(), method_name, args.len()); }
 
-            let parent = this.borrow().get_parent();
+            let parent = this.lock().unwrap().get_parent();
             match parent {
                 Some(p) => superclass.execute_method(sf, method_name, p, args),
                 _ => panic!("Bytecode instance {} does not support method {}", self.get_name(), method_name)
@@ -143,8 +145,8 @@ impl JavaClass for BytecodeClass {
         if self.methods.contains_key(method_name) {
             if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
 
-            let var = Rc::new(RefCell::new(NativeObjectInstance {}));
-            let mut variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+            let var = Arc::new(Mutex::new(NativeNullInstance {}));
+            let mut variables: [Arc<Mutex<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
                 var.clone(), var.clone(), var.clone(), var.clone(),
                 var.clone(), var.clone(), var.clone(), var.clone(),
                 var.clone(), var.clone(), var.clone(), var.clone()];
@@ -167,12 +169,12 @@ impl JavaClass for BytecodeClass {
         }
     }
 
-    fn get_static_object(&self, field_name: &String) -> Rc<RefCell<dyn JavaInstance>> {
-        return self.static_fields.borrow().get(field_name).unwrap().clone();
+    fn get_static_object(&self, field_name: &String) -> Arc<Mutex<dyn JavaInstance>> {
+        return self.static_fields.lock().unwrap().get(field_name).unwrap().clone();
     }
 
-    fn put_static_object(&self, field_name: &String, value: Rc<RefCell<dyn JavaInstance>>) {
-        self.static_fields.borrow_mut().insert(field_name.clone(), value.clone());
+    fn put_static_object(&self, field_name: &String, value: Arc<Mutex<dyn JavaInstance>>) {
+        self.static_fields.lock().unwrap().insert(field_name.clone(), value.clone());
     }
 }
 
@@ -351,7 +353,7 @@ impl BytecodeClass {
             if get_debug() >= 2 { println!("  - {}", interface_method_idx); }
         }
 
-        let static_fields: Rc<RefCell<HashMap<String, Rc<RefCell<dyn JavaInstance>>>>> = Rc::new(RefCell::new(HashMap::new()));
+        let static_fields: Arc<Mutex<HashMap<String, Arc<Mutex<dyn JavaInstance>>>>> = Arc::new(Mutex::new(HashMap::new()));
         let mut fields: HashMap<String, String> = HashMap::new();
 
         // fields_count
@@ -376,9 +378,9 @@ impl BytecodeClass {
                 match constants_string.get(&field_descriptor_idx) {
                     Some(string) => {
                         match &string.value[0..1] {
-                            "I" => static_fields.borrow_mut().insert(field_name, Rc::new(RefCell::new(NativeIntegerInstance::new(0)))),
-                            "F" => static_fields.borrow_mut().insert(field_name, Rc::new(RefCell::new(NativeFloatInstance::new(0.0)))),
-                            _ => static_fields.borrow_mut().insert(field_name, Rc::new(RefCell::new(NativeNullInstance {})))
+                            "I" => static_fields.lock().unwrap().insert(field_name, Arc::new(Mutex::new(NativeIntegerInstance::new(0)))),
+                            "F" => static_fields.lock().unwrap().insert(field_name, Arc::new(Mutex::new(NativeFloatInstance::new(0.0)))),
+                            _ => static_fields.lock().unwrap().insert(field_name, Arc::new(Mutex::new(NativeNullInstance {})))
                         }
                     },
                     _ => panic!("Unknown string index {}", field_descriptor_idx)

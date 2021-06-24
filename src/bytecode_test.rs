@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{sync::{Arc, Mutex}};
 
-    use crate::{bytecode::{ByteCodeInstruction, InstrIAdd, InstrIShl, InstrIShr, InstrIUShr, InstrLShl, InstrLShr, InstrLUShr}, jvm::{JavaInstance, StackFrame}, native_java_classes::NativeObjectInstance};
+    use crate::{bytecode::{ByteCodeInstruction, InstrIAdd, InstrIShl, InstrIShr, InstrIUShr, InstrLShl, InstrLShr, InstrLUShr}, jvm::{JavaInstance, StackFrame}, native_java_classes::{NativeNullInstance}};
 
     fn get_stack_frame() -> StackFrame {
-        let var = Rc::new(RefCell::new(NativeObjectInstance {}));
-        let variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+        let var = Arc::new(Mutex::new(NativeNullInstance {}));
+        let variables: [Arc<Mutex<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
             var.clone(), var.clone(), var.clone(), var.clone(),
             var.clone(), var.clone(), var.clone(), var.clone(),
             var.clone(), var.clone(), var.clone(), var.clone()];

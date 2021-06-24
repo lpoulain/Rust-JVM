@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 
 use crate::{get_class, get_debug};
 use crate::bytecode_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble };
@@ -190,7 +189,7 @@ impl ByteCodeInstruction for InstrALoad {
     fn print(&self) { println!("      aload {}", self.variable); }
 }
 
-pub struct InstrLdc { value: Rc<RefCell<dyn JavaInstance>> }
+pub struct InstrLdc { value: Arc<Mutex<dyn JavaInstance>> }
 impl ByteCodeInstruction for InstrLdc {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push(self.value.clone());
@@ -198,7 +197,7 @@ impl ByteCodeInstruction for InstrLdc {
     }
     fn print(&self) {
         print!("      ldc ");
-        self.value.borrow().print();
+        self.value.lock().unwrap().print();
         println!();
     }
 }
@@ -264,8 +263,8 @@ impl ByteCodeInstruction for InstrIALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -280,8 +279,8 @@ impl ByteCodeInstruction for InstrLALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -298,8 +297,8 @@ impl ByteCodeInstruction for InstrFALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -314,8 +313,8 @@ impl ByteCodeInstruction for InstrDALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -330,8 +329,8 @@ impl ByteCodeInstruction for InstrAALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -346,8 +345,8 @@ impl ByteCodeInstruction for InstrBALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -362,8 +361,8 @@ impl ByteCodeInstruction for InstrCALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -378,8 +377,8 @@ impl ByteCodeInstruction for InstrSALoad {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let idx = sf.pop_int();
         let arg = sf.pop_array();
-        let array = arg.borrow();
-        let object: &Rc<RefCell<dyn JavaInstance>> = match array.get(idx as usize) {
+        let array = arg.lock().unwrap();
+        let object: &Arc<Mutex<dyn JavaInstance>> = match array.get(idx as usize) {
             Some(obj) => obj,
             _ => panic!("No object in the array at index {}", idx)
         };
@@ -550,7 +549,7 @@ impl ByteCodeInstruction for InstrIAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iastore"); }
@@ -564,7 +563,7 @@ impl ByteCodeInstruction for InstrLAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      lastore"); }
@@ -576,7 +575,7 @@ impl ByteCodeInstruction for InstrFAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fastore"); }
@@ -588,7 +587,7 @@ impl ByteCodeInstruction for InstrDAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      dastore"); }
@@ -600,7 +599,7 @@ impl ByteCodeInstruction for InstrAAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aastore"); }
@@ -612,7 +611,7 @@ impl ByteCodeInstruction for InstrBAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      bastore"); }
@@ -624,7 +623,7 @@ impl ByteCodeInstruction for InstrCAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      castore"); }
@@ -636,7 +635,7 @@ impl ByteCodeInstruction for InstrSAStore {
         let object = sf.pop();
         let idx = sf.pop_int();
         let array = sf.pop_array();
-        array.borrow_mut()[idx as usize] = object;
+        array.lock().unwrap()[idx as usize] = object;
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      sastore"); }
@@ -1740,7 +1739,7 @@ pub struct InstrGetField { class_name: String, field_name: String }
 impl ByteCodeInstruction for InstrGetField {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let instance = sf.pop();
-        let field = instance.borrow().get_field(&self.field_name);
+        let field = instance.lock().unwrap().get_field(&self.field_name);
         sf.push(field);
         return InstrNextAction::NEXT;
     }
@@ -1752,7 +1751,7 @@ impl ByteCodeInstruction for InstrPutField {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let value = sf.pop();
         let instance = sf.pop();
-        instance.borrow_mut().set_field(&self.field_name, value);
+        instance.lock().unwrap().set_field(&self.field_name, value);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      putfield {}.{}", self.class_name, self.field_name); }
@@ -1761,7 +1760,7 @@ impl ByteCodeInstruction for InstrPutField {
 pub struct InstrInvokeVirtual { class_name: String, method_name: String, type_desc: String, nb_args: usize }
 impl ByteCodeInstruction for InstrInvokeVirtual {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
-        let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+        let mut args: Vec<Arc<Mutex<dyn JavaInstance>>> = Vec::new();
         for _ in 0..self.nb_args {
             args.push(sf.pop().clone());
         }
@@ -1778,7 +1777,7 @@ impl ByteCodeInstruction for InstrInvokeSpecial {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         if get_debug() >= 1 { sf.print_stack(); }
 
-        let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+        let mut args: Vec<Arc<Mutex<dyn JavaInstance>>> = Vec::new();
         for _ in 0..self.nb_args {
             args.push(sf.pop().clone());
         }
@@ -1804,7 +1803,7 @@ pub struct InstrInvokeInterface { class_name: String, method_name: String, type_
 impl ByteCodeInstruction for InstrInvokeInterface {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
 
-        let mut args: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
+        let mut args: Vec<Arc<Mutex<dyn JavaInstance>>> = Vec::new();
         for _ in 0..self.nb_args {
             args.push(sf.pop().clone());
         }
@@ -1866,11 +1865,11 @@ pub struct InstrNewArray { atype: u8 }
 impl ByteCodeInstruction for InstrNewArray {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let count = sf.pop_int();
-        let mut array: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
+        let mut array: Vec<Arc<Mutex<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
         for _i in 0..count {
-            array.push(Rc::new(RefCell::new(NativeIntegerInstance::new(0))));
+            array.push(Arc::new(Mutex::new(NativeIntegerInstance::new(0))));
         }
-        sf.push_array(Rc::new(RefCell::new(array)));
+        sf.push_array(Arc::new(Mutex::new(array)));
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      newarray {}", self.atype); }
@@ -1880,11 +1879,11 @@ pub struct InstrANewArray { class_name: String }
 impl ByteCodeInstruction for InstrANewArray {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let count = sf.pop_int();
-        let mut array: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
+        let mut array: Vec<Arc<Mutex<dyn JavaInstance>>> = Vec::with_capacity(count as usize);
         for _i in 0..count {
-            array.push(Rc::new(RefCell::new(NativeIntegerInstance::new(0))));
+            array.push(Arc::new(Mutex::new(NativeIntegerInstance::new(0))));
         }
-        sf.push_array(Rc::new(RefCell::new(array)));
+        sf.push_array(Arc::new(Mutex::new(array)));
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      anewarray {}", self.class_name); }
@@ -1894,7 +1893,7 @@ pub struct InstrArrayLength { }
 impl ByteCodeInstruction for InstrArrayLength {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let array = sf.pop_array();
-        sf.push_int(array.borrow().len() as i32);
+        sf.push_int(array.lock().unwrap().len() as i32);
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      arraylength"); }
@@ -1992,13 +1991,13 @@ impl ByteCode {
                 0x12 => {
                     let idx = data.get_u8() as usize;
                     match constants_string_ref.get(&idx) {
-                        Some(string) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeStringInstance::new(string.value.clone()))) }),
+                        Some(string) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeStringInstance::new(string.value.clone()))) }),
                         _ => match constants_float.get(&idx) {
-                            Some(float) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeFloatInstance::new(float.value))) }),
+                            Some(float) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeFloatInstance::new(float.value))) }),
                             _ => match constants_integer.get(&idx) {
-                                Some(int) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeIntegerInstance::new(int.value))) }),
+                                Some(int) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeIntegerInstance::new(int.value))) }),
                                 _ =>  match constants_class.get(&idx) {
-                                    Some(class) => Box::new(InstrLdc { value: Rc::new(RefCell::new(JavaClassInstance::new(class.name.clone()))) }),
+                                    Some(class) => Box::new(InstrLdc { value: Arc::new(Mutex::new(JavaClassInstance::new(class.name.clone()))) }),
                                     _ => panic!("ldc: unknown index {}", idx)
                                 }
                             }
@@ -2008,11 +2007,11 @@ impl ByteCode {
                 0x13 => {
                     let idx = data.get_u16size();
                     match constants_string_ref.get(&idx) {
-                        Some(string) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeStringInstance::new(string.value.clone()))) }),
+                        Some(string) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeStringInstance::new(string.value.clone()))) }),
                         _ => match constants_float.get(&idx) {
-                            Some(float) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeFloatInstance::new(float.value))) }),
+                            Some(float) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeFloatInstance::new(float.value))) }),
                             _ => match constants_integer.get(&idx) {
-                                Some(int) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeIntegerInstance::new(int.value))) }),
+                                Some(int) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeIntegerInstance::new(int.value))) }),
                                 _ =>  panic!("ldc_w: unknown index {}", idx)
                             }
                         }
@@ -2021,9 +2020,9 @@ impl ByteCode {
                 0x14 => {
                     let idx = data.get_u16size();
                     match constants_double.get(&idx) {
-                        Some(double) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeDoubleInstance::new(double.value))) }),
+                        Some(double) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeDoubleInstance::new(double.value))) }),
                         _ => match constants_long.get(&idx) {
-                            Some(long) => Box::new(InstrLdc { value: Rc::new(RefCell::new(NativeLongInstance::new(long.value))) }),
+                            Some(long) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeLongInstance::new(long.value))) }),
                             _ => panic!("ldc2_w: unknown index {}", idx)
                         }
                     }

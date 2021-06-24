@@ -1,8 +1,6 @@
 use core::time;
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::Ordering;
 use std::thread;
 
@@ -45,7 +43,7 @@ impl JavaInstance for NativeObjectInstance {
     fn get_class_name(&self) -> String {
         return "java/lang/Object".to_string();
     }
-    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, _args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => { },
             _ => panic!("Class {} does not support method {}", self.get_class_name(), method_name)
@@ -56,8 +54,8 @@ impl JavaInstance for NativeObjectInstance {
 pub struct NativeObjectClass { }
 
 impl JavaClass for NativeObjectClass {
-    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
-        Rc::new(RefCell::new(NativeObjectInstance {}))
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        Arc::new(Mutex::new(NativeObjectInstance {}))
     }
     fn get_name(&self) -> String {
         return "java/lang/Object".to_string();
@@ -67,7 +65,7 @@ impl JavaClass for NativeObjectClass {
         println!("Native Object class");
     }
 
-    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, _args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
             },
@@ -90,15 +88,15 @@ impl JavaInstance for NativePrintStreamInstance {
     fn get_class_name(&self) -> String {
         return "Stream".to_string();
     }
-    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "println" => {
                 let object = args.get(0).unwrap();
-                println!("{}", (**object).borrow().get_string());
+                println!("{}", (**object).lock().unwrap().get_string());
             },
             "print" => {
                 let object = args.get(0).unwrap();
-                print!("{}", (**object).borrow().get_string());
+                print!("{}", (**object).lock().unwrap().get_string());
             },
             _ => panic!("Native class {} does not have method {}", self.get_class_name(), method_name)
         }
@@ -116,15 +114,15 @@ impl JavaClass for NativePrintStreamClass {
         println!("Native Stream class");
     }
 
-    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "println" => {
-                let string = args.get(0).unwrap().borrow().get_string();
+                let string = args.get(0).unwrap().lock().unwrap().get_string();
 
                 println!("{}", string);
             },
             "print" => {
-                let string = args.get(0).unwrap().borrow().get_string();
+                let string = args.get(0).unwrap().lock().unwrap().get_string();
 
                 print!("{}", string);
             },
@@ -146,9 +144,9 @@ impl JavaClass for NativeSystemClass {
         println!("Native System class");
     }
 
-    fn get_static_object(&self, field_name: &String) -> Rc<RefCell<dyn JavaInstance>> {
+    fn get_static_object(&self, field_name: &String) -> Arc<Mutex<dyn JavaInstance>> {
         if field_name.eq("out") {
-            return Rc::new(RefCell::new(NativePrintStreamInstance {}));
+            return Arc::new(Mutex::new(NativePrintStreamInstance {}));
         }
             
         panic!("Native class {} does not have static field [{}]", self.get_name(), field_name);
@@ -373,11 +371,11 @@ impl JavaInstance for NativeStringInstance {
     fn print(&self) {
         print!("\"{}\"", self.value);
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {},
             "startsWith" => {
-                let arg = args.get(0).unwrap().borrow().get_string();
+                let arg = args.get(0).unwrap().lock().unwrap().get_string();
                 let this = self.get_string();
 
                 sf.push_bool(this.starts_with(&arg));
@@ -402,7 +400,7 @@ impl JavaInstance for NativeStringInstance {
                 sf.push_int(hash);
             },
             "equals" => {
-                let arg = args.get(0).unwrap().borrow().get_string();
+                let arg = args.get(0).unwrap().lock().unwrap().get_string();
                 let this = self.get_string();
 
                 sf.push_bool(this.eq(&arg));
@@ -421,8 +419,8 @@ impl NativeStringInstance {
 pub struct NativeStringClass { }
 
 impl JavaClass for NativeStringClass {
-    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
-        Rc::new(RefCell::new(NativeStringInstance { value: "".to_string() }))
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        Arc::new(Mutex::new(NativeStringInstance { value: "".to_string() }))
     }
     fn get_name(&self) -> String {
         return "java/lang/String".to_string();
@@ -445,14 +443,14 @@ impl JavaClass for NativeStringClass {
                 if special {
                     match c {
                         'd' => {
-                            match array.borrow().get(array_idx) {
-                                Some(object) => output.push_str(&(**object).borrow().get_int().to_string()),
+                            match array.lock().unwrap().get(array_idx) {
+                                Some(object) => output.push_str(&(**object).lock().unwrap().get_int().to_string()),
                                 _ => panic!("String.format() does not have enought arguments")
                             };
                         },
                         's' => {
-                            match array.borrow_mut().get(array_idx) {
-                                Some(object) => output.push_str(&(**object).borrow().get_string().clone()),
+                            match array.lock().unwrap().get(array_idx) {
+                                Some(object) => output.push_str(&(**object).lock().unwrap().get_string().clone()),
                                 _ => panic!("String.format() does not have enought arguments")
                             };
                         },
@@ -483,11 +481,11 @@ struct NativeStringBuilderInstance { content: String }
 impl JavaInstance for NativeStringBuilderInstance {
     fn get_class_name(&self) -> String { "java/lang/StringBuilder".to_string() }
 
-    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => { },
             "append" => {
-                let string = args[0].borrow().get_string();
+                let string = args[0].lock().unwrap().get_string();
                 self.content.push_str(&string);
                 sf.push(this.clone());
             },
@@ -502,8 +500,8 @@ impl JavaInstance for NativeStringBuilderInstance {
 struct NativeStringBuilderClass {}
 
 impl JavaClass for NativeStringBuilderClass {
-    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
-        Rc::new(RefCell::new(NativeStringBuilderInstance { content: "".to_string() }))
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        Arc::new(Mutex::new(NativeStringBuilderInstance { content: "".to_string() }))
     }
 
     fn get_name(&self) -> String { "java/lang/StringBuilder".to_string() }
@@ -512,30 +510,30 @@ impl JavaClass for NativeStringBuilderClass {
 
 /////////////////// java.util.Arrays
 
-pub struct NativeArrayInstance { pub values: Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> }
+pub struct NativeArrayInstance { pub values: Arc<Mutex<Vec<Arc<Mutex<dyn JavaInstance>>>>> }
 impl JavaInstance for NativeArrayInstance {
     fn get_class_name(&self) -> String {
         return "java/util/Arrays".to_string();
     }
 
-    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, _args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "clone" => {
-                let array: Vec<Rc<RefCell<dyn JavaInstance>>> = self.values.borrow().clone();
-                sf.push_array(Rc::new(RefCell::new(array)));
+                let array: Vec<Arc<Mutex<dyn JavaInstance>>> = self.values.lock().unwrap().clone();
+                sf.push_array(Arc::new(Mutex::new(array)));
             },
             _ => panic!("Native instance {} does not support method {}", self.get_class_name(), method_name)
         };
     }
 
-    fn get_array(&self) -> Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> {
+    fn get_array(&self) -> Arc<Mutex<Vec<Arc<Mutex<dyn JavaInstance>>>>> {
         return self.values.clone();
     }
 
     fn print(&self) {
         print!("[");
-        for value in self.values.borrow().iter() {
-            value.borrow().print();
+        for value in self.values.lock().unwrap().iter() {
+            value.lock().unwrap().print();
             print!(", ")
         }
         print!("]");
@@ -557,12 +555,12 @@ impl JavaClass for NativeArraysClass {
         if method_name.eq("asList") {
             let array = sf.pop_array();
 
-            let mut list: Vec<Rc<RefCell<dyn JavaInstance>>> = Vec::new();
-            for elt in array.borrow().iter() {
+            let mut list: Vec<Arc<Mutex<dyn JavaInstance>>> = Vec::new();
+            for elt in array.lock().unwrap().iter() {
                 list.push((*elt).clone());
             }
 
-            sf.push(Rc::new(RefCell::new(NativeArrayListInstance { content: Rc::new(RefCell::new(list)) })));
+            sf.push(Arc::new(Mutex::new(NativeArrayListInstance { content: Arc::new(Mutex::new(list)) })));
             return;
         }
 
@@ -573,13 +571,13 @@ impl JavaClass for NativeArraysClass {
 /////////////////// java.util.ArrayList
 
 pub struct NativeArrayListInstance {
-    content: Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>>
+    content: Arc<Mutex<Vec<Arc<Mutex<dyn JavaInstance>>>>>
 }
 impl JavaInstance for NativeArrayListInstance {
     fn get_class_name(&self) -> String {
         return "java/util/ArrayList".to_string();
     }
-    fn get_array(&self) -> Rc<RefCell<Vec<Rc<RefCell<dyn JavaInstance>>>>> {
+    fn get_array(&self) -> Arc<Mutex<Vec<Arc<Mutex<dyn JavaInstance>>>>> {
         return self.content.clone();
     }
 
@@ -590,26 +588,26 @@ impl JavaInstance for NativeArrayListInstance {
         }
     }
     fn print(&self) {
-        let elements = self.content.borrow();
+        let elements = self.content.lock().unwrap();
         print!("<{} instance [", self.get_class_name());
         for element in elements.iter() {
-            element.borrow().print();
+            element.lock().unwrap().print();
             print!(", ");
         }
         print!("]>");
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
                 return;
             },
             "stream" => {
                 let list = self.get_array();
-                sf.push(Rc::new(RefCell::new(NativeStreamInstance::new(list))));
+                sf.push(Arc::new(Mutex::new(NativeStreamInstance::new(list))));
             },
             "add" => {
                 let value= args.get(0).unwrap();
-                self.content.borrow_mut().push(value.clone());
+                self.content.lock().unwrap().push(value.clone());
 
                 sf.push_bool(true);
             },
@@ -621,8 +619,8 @@ impl JavaInstance for NativeArrayListInstance {
 pub struct NativeArrayListClass { }
 
 impl JavaClass for NativeArrayListClass {
-    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
-        Rc::new(RefCell::new(NativeArrayListInstance { content: Rc::new(RefCell::new(Vec::new())) }))
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        Arc::new(Mutex::new(NativeArrayListInstance { content: Arc::new(Mutex::new(Vec::new())) }))
     }
 
     fn get_name(&self) -> String {
@@ -643,16 +641,16 @@ impl JavaInstance for NativeListInstance {
     fn get_class_name(&self) -> String {
         return "java/util/List".to_string();
     }
-    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, _args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, _args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "stream" => {
                 let list = sf.pop_array();
-                sf.push(Rc::new(RefCell::new(NativeStreamInstance::new(list))));
+                sf.push(Arc::new(Mutex::new(NativeStreamInstance::new(list))));
             },
             "add" => {
                 let value= sf.pop();
                 let list = sf.pop_array();
-                list.borrow_mut().push(value);
+                list.lock().unwrap().push(value);
 
                 sf.push_bool(true);
             }
@@ -708,11 +706,11 @@ impl JavaInstance for NativeEnumInstance {
         return "java/lang/Enum".to_string();
     }
 
-    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
-                self.name = args.get(1).unwrap().borrow().get_string();
-                self.ordinal = args.get(0).unwrap().borrow().get_int();
+                self.name = args.get(1).unwrap().lock().unwrap().get_string();
+                self.ordinal = args.get(0).unwrap().lock().unwrap().get_int();
             },
             "ordinal" => {
                 sf.push_int(self.ordinal);
@@ -725,8 +723,8 @@ impl JavaInstance for NativeEnumInstance {
 struct NativeEnumClass {}
 
 impl JavaClass for NativeEnumClass {
-    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
-        Rc::new(RefCell::new(NativeEnumInstance { ordinal: 0, name: "".to_string() }))
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        Arc::new(Mutex::new(NativeEnumInstance { ordinal: 0, name: "".to_string() }))
     }
 
     fn get_name(&self) -> String {
@@ -741,21 +739,21 @@ impl JavaClass for NativeEnumClass {
 /////////////////// java.lang.Thread
 
 struct NativeThreadInstance {
-    object: Rc<RefCell<dyn JavaInstance>>,
+    object: Arc<Mutex<dyn JavaInstance>>,
     name: String
 }
 
 struct ThreadObjects {
-    objects: Option<HashMap<i32, Rc<RefCell<dyn JavaInstance>>>>
+    objects: Option<HashMap<i32, Arc<Mutex<dyn JavaInstance>>>>
 }
 
 impl ThreadObjects {
-    fn add(&mut self, idx: i32, object: Rc<RefCell<dyn JavaInstance>>) {
+    fn add(&mut self, idx: i32, object: Arc<Mutex<dyn JavaInstance>>) {
         unsafe {
             match self.objects.as_mut() {
                 Some(map) => { map.insert(idx, object.clone()); },
                 None => {
-                    let mut mp: HashMap<i32, Rc<RefCell<dyn JavaInstance>>> = HashMap::new();
+                    let mut mp: HashMap<i32, Arc<Mutex<dyn JavaInstance>>> = HashMap::new();
                     mp.insert(idx, object.clone());
                     THREAD_OBJECTS.objects = Some(mp);
                 }
@@ -766,21 +764,21 @@ impl ThreadObjects {
 
 fn new_thread(id: i32) {
     let this = get_thread_object(id);
-    let var = Rc::new(RefCell::new(NativeObjectInstance {}));
-    let variables: [Rc<RefCell<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
+    let var = Arc::new(Mutex::new(NativeObjectInstance {}));
+    let variables: [Arc<Mutex<dyn JavaInstance>>; 16] = [var.clone(), var.clone(), var.clone(), var.clone(),
         var.clone(), var.clone(), var.clone(), var.clone(),
         var.clone(), var.clone(), var.clone(), var.clone(),
         var.clone(), var.clone(), var.clone(), var.clone()];
 
     let mut sf = StackFrame::new(variables);
 
-    let class = get_class(&this.borrow().get_class_name());
+    let class = get_class(&this.lock().unwrap().get_class_name());
     class.execute_method(&mut sf, &"run".to_string(), this.clone(), Vec::new());
 }
 
 static mut THREAD_OBJECTS: ThreadObjects = ThreadObjects { objects: None };
 
-fn get_thread_object(idx: i32) -> Rc<RefCell<dyn JavaInstance>> {
+fn get_thread_object(idx: i32) -> Arc<Mutex<dyn JavaInstance>> {
     unsafe {
         match &THREAD_OBJECTS.objects {
             Some(map) => map.get(&idx).unwrap().clone(),
@@ -792,18 +790,17 @@ fn get_thread_object(idx: i32) -> Rc<RefCell<dyn JavaInstance>> {
 impl JavaInstance for NativeThreadInstance {
     fn get_class_name(&self) -> String { "java/lang/Thread".to_string() }
 
-    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Rc<RefCell<dyn JavaInstance>>, args: Vec<Rc<RefCell<dyn JavaInstance>>>) {
+    fn execute_method(&mut self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
         match &method_name[..] {
             "<init>" => {
-                self.name = args[0].borrow().get_string();
+                self.name = args[0].lock().unwrap().get_string();
                 self.object = args[1].clone();
             },
             "start" => {
-//                let class = get_class(&self.object.borrow().get_class_name());
-//                class.borrow().execute_method(sf, &"run".to_string(), self.object.clone(), Vec::new());
                 let mut rng = rand::thread_rng();
                 let idx = rng.gen::<i32>();
 
+                // Cannot manage to pass the JavaInstance object inside thread::spawn(), so we need to pass it another way
                 unsafe { THREAD_OBJECTS.add(idx, self.object.clone()); };
                 GLOBAL_THREAD_COUNT.fetch_add(1, Ordering::SeqCst);
                 thread::spawn(move || {
@@ -819,8 +816,8 @@ impl JavaInstance for NativeThreadInstance {
 struct NativeThreadClass {}
 
 impl JavaClass for NativeThreadClass {
-    fn new(&self) -> Rc<RefCell<dyn JavaInstance>> {
-        Rc::new(RefCell::new(NativeThreadInstance { object: Rc::new(RefCell::new(NativeNullInstance {})), name: "".to_string() } ))
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        Arc::new(Mutex::new(NativeThreadInstance { object: Arc::new(Mutex::new(NativeNullInstance {})), name: "".to_string() } ))
     }
 
     fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
