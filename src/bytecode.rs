@@ -672,6 +672,100 @@ impl ByteCodeInstruction for InstrDup {
     fn print(&self) { println!("      dup"); }
 }
 
+pub struct InstrDupX1 { }
+impl ByteCodeInstruction for InstrDupX1 {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value1 = sf.pop();
+        let value2 = sf.pop();
+        sf.push(value1.clone());
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dup_x1"); }
+}
+
+pub struct InstrDupX2 { }
+impl ByteCodeInstruction for InstrDupX2 {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value1 = sf.pop();
+        let value2 = sf.pop();
+        let value3 = sf.pop();
+        sf.push(value1.clone());
+        sf.push(value3.clone());
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dup_x2"); }
+}
+
+pub struct InstrDup2 { }
+impl ByteCodeInstruction for InstrDup2 {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value1 = sf.pop();
+        let value2 = sf.pop();
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dup2"); }
+}
+
+pub struct InstrDup2X1 { }
+impl ByteCodeInstruction for InstrDup2X1 {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value1 = sf.pop();
+        let value2 = sf.pop();
+        let value3 = sf.pop();
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+        sf.push(value3.clone());
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dup2_x1"); }
+}
+
+pub struct InstrDup2X2 { }
+impl ByteCodeInstruction for InstrDup2X2 {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value1 = sf.pop();
+        let value2 = sf.pop();
+        let value3 = sf.pop();
+        let value4 = sf.pop();
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+        sf.push(value4.clone());
+        sf.push(value3.clone());
+        sf.push(value2.clone());
+        sf.push(value1.clone());
+
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      dup2_x2"); }
+}
+
+pub struct InstrSwap { }
+impl ByteCodeInstruction for InstrSwap {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value1 = sf.pop();
+        let value2 = sf.pop();
+        sf.push(value1.clone());
+        sf.push(value2.clone());
+
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      swap"); }
+}
+
 ///////////// 0x6
 
 pub struct InstrIAdd {}
@@ -1572,6 +1666,44 @@ impl ByteCodeInstruction for InstrIfICmpLe {
     }
 }
 
+pub struct InstrIfACmpEq { branch: usize }
+impl ByteCodeInstruction for InstrIfACmpEq {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop();
+        let value1 = sf.pop();
+        if ::std::ptr::eq(&value1, &value2) {
+            return InstrNextAction::GOTO(self.branch);
+        }
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      if_acmpeq {}", self.branch); }
+    fn set_branch(&mut self, address_map: &HashMap<usize, usize>) {
+        match address_map.get(&self.branch) {
+            Some(instr_idx) => { self.branch = *instr_idx; },
+            _ => panic!("Unknown branch position {}", self.branch)
+        }
+    }
+}
+
+pub struct InstrIfACmpNe { branch: usize }
+impl ByteCodeInstruction for InstrIfACmpNe {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let value2 = sf.pop();
+        let value1 = sf.pop();
+        if !::std::ptr::eq(&value1, &value2) {
+            return InstrNextAction::GOTO(self.branch);
+        }
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      if_acmpne {}", self.branch); }
+    fn set_branch(&mut self, address_map: &HashMap<usize, usize>) {
+        match address_map.get(&self.branch) {
+            Some(instr_idx) => { self.branch = *instr_idx; },
+            _ => panic!("Unknown branch position {}", self.branch)
+        }
+    }
+}
+
 pub struct InstrGoto { branch: usize }
 impl ByteCodeInstruction for InstrGoto {
     fn execute(&self, _sf: &mut StackFrame) -> InstrNextAction {
@@ -1901,6 +2033,36 @@ impl ByteCodeInstruction for InstrArrayLength {
 
 ///////////// 0xc
 
+pub struct InstrCheckCast { class_name: String }
+impl ByteCodeInstruction for InstrCheckCast {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let arg = sf.pop();
+        let is_cast_ok = {
+            let object = arg.lock().unwrap();
+            object.get_class_name().eq(&self.class_name) || object.supports_interface(&self.class_name)
+        };
+        if  is_cast_ok {
+            sf.push(arg);
+            return InstrNextAction::NEXT;
+        } else {
+            // TODO: throw an exception when the mechanism is implemented
+            sf.push(arg);
+            return InstrNextAction::NEXT;
+        }
+    }
+    fn print(&self) { println!("      checkcast"); }
+}
+
+pub struct InstrInstanceOf { class_name: String }
+impl ByteCodeInstruction for InstrInstanceOf {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let arg = sf.pop();
+        sf.push_bool(arg.lock().unwrap().get_class_name().eq(&self.class_name));
+        return InstrNextAction::NEXT;
+    }
+    fn print(&self) { println!("      instanceof"); }
+}
+
 pub struct InstrIfNull { branch: usize }
 impl ByteCodeInstruction for InstrIfNull {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
@@ -2096,12 +2258,12 @@ impl ByteCode {
                 0x57 => Box::new(InstrPop {}),
                 0x58 => Box::new(InstrPop2 {}),
                 0x59 => Box::new(InstrDup {}),
-//                0x5a => dup_x1
-//                0x5b => dup_x2
-//                0x5c => dup2
-//                0x5d => dup2_x1
-//                0x5e => dup2_x2
-//                0x5f => swap
+                0x5a => Box::new(InstrDupX1 {}),
+                0x5b => Box::new(InstrDupX2 {}),
+                0x5c => Box::new(InstrDup2 {}),
+                0x5d => Box::new(InstrDup2X1 {}),
+                0x5e => Box::new(InstrDup2X2 {}),
+                0x5f => Box::new(InstrSwap {}),
                 0x60 => Box::new(InstrIAdd {}),
                 0x61 => Box::new(InstrLAdd {}),
                 0x62 => Box::new(InstrFAdd {}),
@@ -2171,8 +2333,8 @@ impl ByteCode {
                 0xa2 => Box::new(InstrIfICmpGe { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0xa3 => Box::new(InstrIfICmpGt { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0xa4 => Box::new(InstrIfICmpLe { branch: (data_offset as i16 + data.get_i16()) as usize }),
-//                0xa5 => if_acmpeq
-//                0xa6 => if_acmpne
+                0xa5 => Box::new(InstrIfACmpEq { branch: (data_offset as i16 + data.get_i16()) as usize }),
+                0xa6 => Box::new(InstrIfACmpNe { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0xa7 => Box::new(InstrGoto { branch: (data_offset as i16 + data.get_i16()) as usize }),
                 0xaa => {
                     let offset = data_offset;
@@ -2309,10 +2471,19 @@ impl ByteCode {
                 0xbe => Box::new(InstrArrayLength {}),
 //                0xbf => athrow
                 0xc0 => {
-                    let _type_name = data.get_u16size();
-                    Box::new(InstrNop {})
+                    let idx = data.get_u16size();
+                    match constants_class.get(&idx) {
+                        Some(class) => Box::new(InstrCheckCast { class_name: class.name.clone() }),
+                        _ => panic!("Unknown class at index {}", idx)
+                    }
                 },
-//                0xc1 => instanceof
+                0xc1 => {
+                    let idx = data.get_u16size();
+                    match constants_class.get(&idx) {
+                        Some(class) => Box::new(InstrInstanceOf { class_name: class.name.clone() }),
+                        _ => panic!("Unknown class at index {}", idx)
+                    }
+                },
 //                0xc2 => monitorenter
 //                0xc3 => monitorexit
 //                0xc4 => wide
