@@ -6,10 +6,10 @@ use std::thread;
 
 use rand::Rng;
 
-use crate::{CLASSES, GLOBAL_THREAD_COUNT, get_class};
+use crate::{CLASSES, GLOBAL_THREAD_COUNT, class_exists, get_class};
 use crate::StackFrame;
 use crate::jvm::JavaInstance;
-use crate::java_class::JavaClass;
+use crate::java_class::{JavaClass, MethodCallResult};
 use crate::streams::NativeStreamClass;
 use crate::streams::NativeLambdaMetafactoryClass;
 use crate::streams::NativeStreamInstance;
@@ -33,6 +33,10 @@ pub fn register_native_classes() {
         CLASSES.add(Arc::new(NativeMethodHandlesClass {}));
         CLASSES.add(Arc::new(NativeStringBuilderClass {}));
         CLASSES.add(Arc::new(NativeThreadClass {}));
+        CLASSES.add(Arc::new(NativeGenericExceptionClass { name: "java/lang/Throwable".to_string(), parent: "".to_string() }));
+        CLASSES.add(Arc::new(NativeGenericExceptionClass { name: "java/lang/Exception".to_string(), parent: "java/lang/Throwable".to_string() }));
+        CLASSES.add(Arc::new(NativeGenericExceptionClass { name: "java/lang/RuntimeException".to_string(), parent: "java/lang/Exception".to_string() }));
+        CLASSES.add(Arc::new(NativeGenericExceptionClass { name: "java/lang/ArithmeticException".to_string(), parent: "java/lang/RuntimeException".to_string() }));
     }
 }
 
@@ -65,17 +69,20 @@ impl JavaClass for NativeObjectClass {
         println!("Native Object class");
     }
 
-    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, _args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
+    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, _args: Vec<Arc<Mutex<dyn JavaInstance>>>) -> MethodCallResult {
         match &method_name[..] {
             "<init>" => {
+                return MethodCallResult::SUCCESS;
             },
             _ => panic!("Class {} does not support method {}", self.get_name(), method_name)
         };
     }
 
-    fn execute_static_method(&self, _sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, _sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         match &method_name[..] {
-            "clinit" => {},
+            "clinit" => {
+                return MethodCallResult::SUCCESS;
+            },
             _ => panic!("Class {} does not support static method {}", self.get_name(), method_name)
         };
     }
@@ -114,7 +121,7 @@ impl JavaClass for NativePrintStreamClass {
         println!("Native Stream class");
     }
 
-    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
+    fn execute_method(&self, _sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) -> MethodCallResult {
         match &method_name[..] {
             "println" => {
                 let string = args.get(0).unwrap().lock().unwrap().get_string();
@@ -127,7 +134,8 @@ impl JavaClass for NativePrintStreamClass {
                 print!("{}", string);
             },
             _ => panic!("Native class {} does not have method {}", self.get_name(), method_name)
-        }
+        };
+        return MethodCallResult::SUCCESS;
     }
 }
 
@@ -198,7 +206,7 @@ impl JavaClass for NativeIntegerClass {
         println!("Native Integer class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         match &method_name[..] {
             "parseInt" => {
                 let string = sf.pop_string();
@@ -210,6 +218,8 @@ impl JavaClass for NativeIntegerClass {
             },
             _ => panic!("Native class {} does not have static method [{}]", self.get_name(), method_name)
         };
+
+        return MethodCallResult::SUCCESS;
     }
 }
 
@@ -430,7 +440,7 @@ impl JavaClass for NativeStringClass {
         println!("Native Integer class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         if method_name.eq("format") {
             let array = sf.pop_array();
             let string = sf.pop_string();
@@ -468,7 +478,7 @@ impl JavaClass for NativeStringClass {
         
 
             sf.push_string(output);
-            return;
+            return MethodCallResult::SUCCESS;
         }
 
         panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
@@ -551,7 +561,7 @@ impl JavaClass for NativeArraysClass {
         println!("Native Arrays class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         if method_name.eq("asList") {
             let array = sf.pop_array();
 
@@ -561,7 +571,7 @@ impl JavaClass for NativeArraysClass {
             }
 
             sf.push(Arc::new(Mutex::new(NativeArrayListInstance { content: Arc::new(Mutex::new(list)) })));
-            return;
+            return MethodCallResult::SUCCESS;
         }
 
         panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
@@ -684,7 +694,7 @@ impl JavaClass for NativeMathClass {
         println!("Native Math class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         match &method_name[..] {
             "sqrt" => {
                 let nb = sf.pop_double();
@@ -696,6 +706,7 @@ impl JavaClass for NativeMathClass {
             }
             _ => panic!("Native class {} does not have static method [{}]", self.get_name(), method_name)
         };
+        return MethodCallResult::SUCCESS;
     }
 }
 
@@ -820,7 +831,7 @@ impl JavaClass for NativeThreadClass {
         Arc::new(Mutex::new(NativeThreadInstance { object: Arc::new(Mutex::new(NativeNullInstance {})), name: "".to_string() } ))
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         match &method_name[..] {
             "sleep" => {
                 let nb_millis = sf.pop_long() as u64;
@@ -828,7 +839,8 @@ impl JavaClass for NativeThreadClass {
                 thread::sleep(duration);
             },
             _ => panic!("Class instance {} does not support static method {}", self.get_name(), method_name)
-        }
+        };
+        MethodCallResult::SUCCESS
     }
 
     fn get_name(&self) -> String { "java/lang/Thread".to_string() }
@@ -877,9 +889,127 @@ impl JavaClass for NativeMethodHandlesClass {
     }
 }
 
+/////////////////// Generic class
+
 pub struct NativeGenericClass { pub name: String }
 
 impl JavaClass for NativeGenericClass {
     fn get_name(&self) -> String { self.name.clone() }
     fn print(&self) { println!("Native {} class", self.name); }
 }
+
+/////////////////// java.lang.Exception
+
+pub struct NativeGenericExceptionInstance {
+    pub name: String,
+    pub message: String,
+    pub parent_class_name: String,
+    pub stack: Vec<String>
+}
+
+impl JavaInstance for NativeGenericExceptionInstance {
+    fn get_class_name(&self) -> String { self.name.clone() }
+    fn print(&self) { print!("Native {} class", self.name); }
+    fn cast_as(&self, this: Arc<Mutex<dyn JavaInstance>>, class_name: &String) -> Arc<Mutex<dyn JavaInstance>> {
+        if self.name.eq(class_name) || self.parent_class_name.eq(class_name) {
+            return this.clone();
+        }
+        
+        let mut the_class_name = self.parent_class_name.clone();
+        let mut class = get_class(&the_class_name);
+
+        while !the_class_name.eq("") {
+            the_class_name = class.get_parent();
+            if the_class_name.eq(class_name) { return this.clone(); }
+            class = get_class(&the_class_name);
+        }
+
+        panic!("Instance of class {} cannot be converted to {}", self.name, class_name);
+    }
+    
+    fn execute_method(&mut self, sf: &mut StackFrame, method_name: &String, _this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
+        match &method_name[..] {
+            "<init>" => {
+                self.message = args[0].lock().unwrap().get_string();
+            },
+            "getMessage" => {
+                sf.push_string(self.message.clone());
+            },
+            "printStackTrace" => {
+                println!("Exception in {}: {}", self.name, self.message);
+                for frame in self.stack.iter() {
+                    println!("        at {}", frame);
+                }
+            },
+            "addStackFrame" => {
+                self.stack.push(args[0].lock().unwrap().get_string());
+            },
+            _ => panic!("Instance of class {} does not support method {}", self.get_class_name(), method_name)
+        }
+    }
+}
+
+pub struct NativeGenericExceptionClass {
+    name: String,
+    parent: String
+}
+
+impl JavaClass for NativeGenericExceptionClass {
+    fn get_name(&self) -> String { self.name.clone() }
+    fn print(&self) { println!("Native {} class", self.get_name()); }
+    fn get_parent(&self) -> String {
+        self.parent.clone()
+    }
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        let class = get_class(&self.name);
+        Arc::new(Mutex::new(NativeGenericExceptionInstance {
+            name: self.name.clone(),
+            message: "".to_string(),
+            parent_class_name: class.get_parent(),
+            stack: Vec::new()
+        }))
+    }
+}
+
+impl NativeGenericExceptionClass {
+    pub fn new(name: &String, message: &String) -> NativeGenericExceptionInstance {
+        let top_exception = "java/lang/Exception".to_string();
+
+        if !class_exists(name) {
+            unsafe {
+                CLASSES.add(Arc::new(NativeGenericExceptionClass { name: name.clone(), parent: "java/lang/Exception".to_string() }));
+            }
+
+            NativeGenericExceptionInstance {
+                name: name.clone(),
+                message: message.clone(),
+                stack: Vec::new(),
+                parent_class_name: top_exception.clone()
+            }
+        } else {
+            let class = get_class(name);
+            NativeGenericExceptionInstance {
+                name: name.clone(),
+                message: message.clone(),
+                stack: Vec::new(),
+                parent_class_name: class.get_name()
+            }    
+        }
+    }
+}
+/*
+pub struct NativeExceptionClass { }
+
+impl JavaClass for NativeExceptionClass {
+    fn get_name(&self) -> String { "java/lang/Exception".to_string() }
+    fn print(&self) { println!("Native {} class", self.get_name()); }
+    fn new(&self) -> Arc<Mutex<dyn JavaInstance>> {
+        Arc::new(Mutex::new(NativeGenericExceptionInstance {
+            name: self.get_name(),
+            message: "".to_string(),
+            stack: Vec::new(),
+            parent_class_name: "".to_string()
+        }))
+    }
+}
+*/

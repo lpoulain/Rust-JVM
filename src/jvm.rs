@@ -13,7 +13,8 @@ use crate::streams::StreamFunction;
 
 pub trait JavaInstance {
     fn is_bytecode(&self) -> bool { false }
-    fn get_parent(&self) -> Option<Arc<Mutex<dyn JavaInstance>>> { None }
+//    fn get_parent(&self) -> Option<Arc<Mutex<dyn JavaInstance>>> { None }
+    fn cast_as(&self, _this: Arc<Mutex<dyn JavaInstance>>, class_name: &String) -> Arc<Mutex<dyn JavaInstance>> { panic!("Instance of class {} cannot be cast into a {}", self.get_class_name(), class_name); }
     fn supports_interface(&self, _interface_name: &String) -> bool { false }
     fn get_class_name(&self) -> String;
     fn get_int(&self) -> i32 { panic!("{} cannot be converted into an integer", self.get_class_name()); }

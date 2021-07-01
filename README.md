@@ -3,7 +3,7 @@ A far-from-complete Java Virtual Machine written in Rust
 
 ## What is supported
 
-At this point it is a very primitive JVM. The files in the `java` folder (`Hello.java`, `Arithm.java`, `Streams.java`, `Person.java`. `TestThread.java` and `Mandelbrot.java`) show what is currently being supported.
+This JVM implements most bytecode instructions. Its native class support however stays limited, and it has not been tested with many classes. The files in the `java` folder (`Hello.java`, `Arithm.java`, `Streams.java`, `Person.java`. `TestThread.java`, `Exceptions.java` and `Mandelbrot.java`) show what is currently being supported.
 
 See also the following to understand more about Java/Scala/Kotlin code gets converted into bytecode instructions:
 
@@ -36,6 +36,8 @@ Execute 2       invokevirtual java/io/PrintStream.println(Ljava/lang/String;)V
 Hello, World!
 Execute 3       return
 
+
+
 > ./target/debug/jvm Person
 John Smith
 Can legally drink (in the U.S.)
@@ -63,6 +65,12 @@ Thread: Thread-1, 1
 Thread: Thread-2, 1
 Thread Thread-1 exiting.
 Thread Thread-2 exiting.
+
+> ./target/debug/jvm Exceptions 123 2
+Exception caught with the following stack trace:
+Exception in java/lang/ArithmeticException: / by zero
+        at Exceptions.operation(Exceptions.java:15)
+        at Exceptions.main(Exceptions.java:27)
 
 > ./target/release/jvm Mandelbrot
 :::::::::::::::::::::::=======================***************************************===================================

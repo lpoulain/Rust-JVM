@@ -11,10 +11,12 @@ use crate::bytecode::InstrNextAction;
 use crate::get_class;
 use crate::get_debug;
 use crate::java_class::JavaClass;
+use crate::java_class::MethodCallResult;
 use crate::jvm::StackFrame;
 use crate::native_java_classes::NativeFloatInstance;
 use crate::native_java_classes::NativeIntegerInstance;
 use crate::native_java_classes::NativeNullInstance;
+use crate::native_java_classes::NativeStringInstance;
 use crate::{bytecode::ByteCode, jvm::JavaInstance};
 use crate::java_class::BytecodeInstance;
 
@@ -33,7 +35,8 @@ pub struct BytecodeClass {
     pub bootstrap_methods: Vec<AttributeBootstrapMethod>,
     fields: HashMap<String, String>,
     static_fields: Arc<Mutex<HashMap<String, Arc<Mutex<dyn JavaInstance>>>>>,
-    has_static_init: bool
+    has_static_init: bool,
+    source_file: String
 }
 
 impl JavaClass for BytecodeClass {
@@ -104,7 +107,7 @@ impl JavaClass for BytecodeClass {
         }
     }
 
-    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
+    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) -> MethodCallResult {
         if self.methods.contains_key(method_name) {
             if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
 
@@ -124,24 +127,30 @@ impl JavaClass for BytecodeClass {
 
             let mut sf_new = StackFrame::new(variables);
 
-            self.execute_bytecode(&mut sf_new, method_name);
-            if sf_new.return_arg {
-                sf.push(sf_new.pop());
-            }
+            let result = self.execute_bytecode(&mut sf_new, method_name);
+
+            match result {
+                MethodCallResult::SUCCESS => {
+                    if sf_new.return_arg {
+                        sf.push(sf_new.pop());
+                    }
+                    return result;        
+                },
+                MethodCallResult::EXCEPTION(e) => {
+                    return MethodCallResult::EXCEPTION(e.clone());
+                }
+            };
         } else {
             let superclass = get_class(&self.superclass_name);
             if get_debug() >= 1 { println!("Execute bytecode method {}.{}(<{} arguments>)", superclass.get_name(), method_name, args.len()); }
 
-            let parent = this.lock().unwrap().get_parent();
-            match parent {
-                Some(p) => superclass.execute_method(sf, method_name, p, args),
-                _ => panic!("Bytecode instance {} does not support method {}", self.get_name(), method_name)
-            };
-            
+            let this2 = this.clone();
+            let object = this.lock().unwrap().cast_as(this2, &self.superclass_name);
+            return superclass.execute_method(sf, method_name, object, args);
         }
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, nb_args: usize) -> MethodCallResult {
         if self.methods.contains_key(method_name) {
             if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", self.get_name(), method_name, nb_args); }
 
@@ -157,15 +166,26 @@ impl JavaClass for BytecodeClass {
 
             let mut sf_new = StackFrame::new(variables);
 
-            self.execute_bytecode(&mut sf_new, method_name);
-            if sf_new.return_arg {
-                sf.push(sf_new.pop());
+            let result = self.execute_bytecode(&mut sf_new, method_name);
+
+            match result {
+                MethodCallResult::SUCCESS => {
+                    if sf_new.return_arg {
+                        sf.push(sf_new.pop());
+                    }
+                    return MethodCallResult::SUCCESS;
+                },
+                MethodCallResult::EXCEPTION(e) => {
+//                    let frame = self.name.replace("/", ".") + "." + method_name + "()";
+//                    e.lock().unwrap().execute_method(sf, &"addStackFrame".to_string(), e.clone(), vec![Arc::new(Mutex::new(NativeStringInstance::new(frame) ))]);
+                    return MethodCallResult::EXCEPTION(e.clone());
+                }
             }
         } else {
             let superclass = get_class(&self.superclass_name);
             if get_debug() >= 1 { println!("Execute static method {}.{}(<{} arguments>)", superclass.get_name(), method_name, nb_args); }
 
-            superclass.execute_static_method(sf, method_name, nb_args);
+            return superclass.execute_static_method(sf, method_name, nb_args);
         }
     }
 
@@ -203,6 +223,7 @@ impl BytecodeClass {
         let mut constants_float: HashMap<usize, ConstantFloat> = HashMap::new();
         let mut constants_double: HashMap<usize, ConstantDouble> = HashMap::new();
         let mut has_static_init = false;
+        let mut source_file = "".to_string();
 
         while constant_idx <= constant_pool_count {
             opcode = data.get_u8();
@@ -433,9 +454,10 @@ impl BytecodeClass {
                 Some(string) => string.value.clone(),
                 _ => panic!("Unknown string ID {}", descriptor_idx)
             };
-            if get_debug() >= 2 { println!("  Descriptor {}", descriptor_name); }
 
             let attributes_count = data.get_u16size();
+            if get_debug() >= 2 { println!("  Descriptor {}, {} attribute(s)", descriptor_name, attributes_count); }
+
             for _ in 0..attributes_count {
                 let attribute_name_idx = data.get_u16size();
                 let attribute_size = data.get_u32size();
@@ -458,13 +480,52 @@ impl BytecodeClass {
                         println!();
                     }
 
-                    let bytecode = ByteCode::new(&mut code, &constants_class, &constants_string,
+                    let mut bytecode = ByteCode::new(&mut code, &constants_class, &constants_string,
                         &constants_string_ref, &constants_method, &constants_field, &constants_name_type,
                         &constants_dynamic, &constants_integer, &constants_long, &constants_float, &constants_double,
                         &constant_class.name);
-                    methods.insert(method_name.clone(), bytecode);
 
-                    data.skip(attribute_size - 8 - code_size);
+                    let exceptions_count = data.get_u16size();
+                    for _ in 0..exceptions_count {
+                        let start_pc = data.get_u16size();
+                        let end_pc = data.get_u16size();
+                        let handler_pc = data.get_u16size();
+                        let catch_type = data.get_u16size();
+                        let name = match constants_class.get(&&catch_type) {
+                            Some(class) => class.name.clone(),
+                            _ => panic!("Unknown class index {}", catch_type)
+                        };
+                        if get_debug() >= 2 {
+                            println!("    Method exception [{}..{}] -> {}, type={}", start_pc, end_pc, handler_pc, name);
+                        }
+
+                        bytecode.add_exception(start_pc, end_pc, handler_pc, &name);
+                    }
+
+                    let attributes_count = data.get_u16size();
+                    for _ in 0..attributes_count {
+                        let attribute_name_idx = data.get_u16size();
+                        let attribute_size = data.get_u32size();
+
+                        let attribute_name = match constants_string.get(&attribute_name_idx) {
+                            Some(string) => string.value.clone(),
+                            _ => panic!("Unknown string ID {}", attribute_name_idx)
+                        };
+                        if get_debug() >= 2 { println!("    Method attribute {} (size: {})", attribute_name, attribute_size); }
+
+                        if attribute_name.eq("LineNumberTable") {
+                            let table_count = data.get_u16size();
+                            for _ in 0..table_count {
+                                let bytecode_offset = data.get_u16size();
+                                let line = data.get_u16size();
+                                bytecode.add_line_number(line, bytecode_offset);
+                            }
+                        } else {
+                            data.skip(attribute_size);
+                        }
+                    }
+
+                    methods.insert(method_name.clone(), bytecode);
                 } else {
                     data.skip(attribute_size);
                 }
@@ -491,6 +552,12 @@ impl BytecodeClass {
                     let bootstrap = AttributeBootstrapMethod::new(&mut data, &constants_method_handle);
                     bootstrap_methods.push(bootstrap);
                 }
+            } else if attribute_name.eq("SourceFile") {
+                let source_file_idx = data.get_u16size();
+                source_file = match constants_string.get(&source_file_idx) {
+                    Some(string) => string.value.clone(),
+                    _ => panic!("Unknown string at index {}", source_file_idx)
+                }
             } else {
                 data.skip(attribute_size);
             }
@@ -516,11 +583,12 @@ impl BytecodeClass {
             methods: Rc::new(methods),
             fields,
             static_fields,
-            has_static_init
+            has_static_init,
+            source_file
         }
     }
 
-    fn execute_bytecode(&self, sf: &mut StackFrame, method_name: &String) {
+    fn execute_bytecode(&self, sf: &mut StackFrame, method_name: &String) -> MethodCallResult {
         let bytecode = match self.methods.get(method_name) {
             Some(method) => method,
             _ => panic!("Unknown method {} in class {}", method_name, self.name)
@@ -541,10 +609,41 @@ impl BytecodeClass {
                         },
                         InstrNextAction::GOTO(idx) => {
                             instr_idx = idx;
-                        }
+                        },
                         InstrNextAction::RETURN => {
                             if get_debug() >= 1 { sf.print_stack(); }
-                            return;
+                            return MethodCallResult::SUCCESS;
+                        },
+                        InstrNextAction::EXCEPTION(exc_thrown) => {
+                            let mut exception_caught = false;
+                            let exc_thrown_name = exc_thrown.lock().unwrap().get_class_name();
+                            if get_debug() >= 1 { println!("Exception {} caught! at instruction {}", exc_thrown_name, instr_idx); }
+
+                            let mut line_nb: usize = 0;
+                            for (instr, line) in bytecode.line_number_table.iter() {
+                                if *instr > instr_idx { break; }
+                                line_nb = *line;
+                            }
+
+                            let frame = format!("{}.{}({}:{})", self.name.replace("/", "."), method_name, self.source_file, line_nb);
+                            exc_thrown.lock().unwrap().execute_method(sf, &"addStackFrame".to_string(), exc_thrown.clone(), vec![Arc::new(Mutex::new(NativeStringInstance::new(frame) ))]);
+
+                            for exc_caught in bytecode.exceptions.iter() {
+                                match exc_caught.catches(exc_thrown.clone(), instr_idx) {
+                                    Some(handler_pc) => {
+                                        instr_idx = handler_pc;
+                                        sf.push(exc_thrown.clone());
+                                        if get_debug() >= 1 { println!("Exception caught. Jumping to instruction {}", instr_idx); }
+                                        exception_caught = true;
+                                        break;
+                                    },
+                                    None => {}
+                                };
+                            }
+
+                            if !exception_caught {
+                                return MethodCallResult::EXCEPTION(exc_thrown);
+                            }
                         }
                     }
                 },

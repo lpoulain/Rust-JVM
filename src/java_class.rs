@@ -45,6 +45,11 @@ impl JavaInstance for JavaClassInstance {
     }
 }
 
+pub enum MethodCallResult {
+    SUCCESS,
+    EXCEPTION(Arc<Mutex<dyn JavaInstance>>)
+}
+
 pub trait JavaClass {
     fn new(&self) -> Arc<Mutex<dyn JavaInstance>> { panic!("Class {} cannot be instantiated", self.get_name()); }
     fn has_static_init(&self) -> bool { false }
@@ -52,23 +57,23 @@ pub trait JavaClass {
     fn get_bootstrap_method(&self, _idx: usize) -> Option<&AttributeBootstrapMethod> { return None; }
     fn get_name(&self) -> String;
     fn print(&self) { }
-    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) {
+    fn get_parent(&self) -> String { "".to_string() }
+    fn execute_method(&self, sf: &mut StackFrame, method_name: &String, this: Arc<Mutex<dyn JavaInstance>>, args: Vec<Arc<Mutex<dyn JavaInstance>>>) -> MethodCallResult {
         if get_debug() >= 1 { println!("Execute native method {}.{}(<{} arguments>)", self.get_name(), method_name, args.len()); }
 
-        let mut object = this.clone();
         let expected_class = self.get_name();
-        let mut this_class = this.lock().unwrap().get_class_name();
-        while !expected_class.eq(&this_class) && !object.lock().unwrap().supports_interface(&self.get_name()) {
-            let new_obj = match &object.lock().unwrap().get_parent() {
-                Some(parent) => parent.clone(),
-                _ => panic!("Native class {} does not support interface {}", this_class, expected_class)
-            };
-            object = new_obj.clone();
-            this_class = object.lock().unwrap().get_class_name();
-        }
+        let this_class = this.lock().unwrap().get_class_name();
+        let this2 = this.clone();
+        let object = if expected_class.eq(&this_class) || this.lock().unwrap().supports_interface(&expected_class) {
+            this
+        } else {
+            this.lock().unwrap().cast_as(this2, &expected_class)
+        };
+
         object.lock().unwrap().execute_method(sf, method_name, object.clone(), args);
+        return MethodCallResult::SUCCESS;
     }
-    fn execute_static_method(&self, _sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, _sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         panic!("Class {} does not support static method {}", self.get_name(), method_name);
     }
     fn get_static_object(&self, field_name: &String) -> Arc<Mutex<dyn JavaInstance>> {
@@ -95,10 +100,15 @@ impl JavaInstance for BytecodeInstance {
     fn get_class_name(&self) -> String {
         return self.class_name.clone();
     }
-    fn get_parent(&self) -> Option<Arc<Mutex<dyn JavaInstance>>> {
+    fn cast_as(&self, _this: Arc<Mutex<dyn JavaInstance>>, class_name: &String) -> Arc<Mutex<dyn JavaInstance>> {
         match &self.parent {
-            Some(p) => Some(p.clone()),
-            None => None
+            Some(p) => {
+                if !p.lock().unwrap().get_class_name().eq(class_name) {
+                    panic!("Instance of class {} cannot be cast into {}", self.class_name, class_name);
+                }
+                p.clone()
+            },
+            None => panic!("Instance of class {} cannot be cast into {}", self.class_name, class_name)
         }
     }
     fn print(&self) {

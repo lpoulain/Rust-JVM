@@ -15,6 +15,7 @@ use std::time::Duration;
 
 extern crate clap;
 use clap::{Arg, App};
+use java_class::MethodCallResult;
 use jvm::JavaInstance;
 use native_java_classes::{NativeGenericClass, NativeNullInstance};
 use native_java_classes::NativeStringInstance;
@@ -77,6 +78,18 @@ pub fn get_class(class_name: &String) -> Arc<dyn JavaClass> {
                     Some(class) => class.clone(),
                     _ => panic!("Class {} not found", class_name_to_find)
                 }
+            },
+            _ => panic!("Class repository not initialized (key {} not found)", class_name)
+        }
+    }
+}
+pub fn class_exists(class_name: &String) -> bool {
+    unsafe {
+        match &CLASSES.classes {
+            Some(map) => {
+                let arrays_name = "java/util/Arrays".to_string();
+                let class_name_to_find = if class_name.starts_with("[") { &arrays_name } else { class_name };
+                map.contains_key(class_name_to_find)
             },
             _ => panic!("Class repository not initialized (key {} not found)", class_name)
         }
@@ -190,7 +203,18 @@ fn main() {
     let java_class = get_class(&String::from(class_name));
     if debug >= 2 { java_class.print(); }
 
-    java_class.execute_static_method(&mut sf, &"main".to_string(), 1);
+    let result = java_class.execute_static_method(&mut sf, &"main".to_string(), 1);
+
+    match result {
+        MethodCallResult::SUCCESS => {},
+        MethodCallResult::EXCEPTION(e) => {
+            let mut object = e.lock().unwrap();
+            object.execute_method(&mut sf, &"printStackTrace".to_string(), e.clone(), Vec::new());
+//            let message = sf.pop_string();
+//            println!("Exception! {}: {}", object.get_class_name(), message);
+        }
+    };
+
     if debug >= 1 { sf.print_stack(); }
     if debug >= 2 { sf.print_variables(); }
 

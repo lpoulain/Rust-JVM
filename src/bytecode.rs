@@ -11,10 +11,10 @@ use crate::bytecode_class::ConstantNameType;
 use crate::bytecode_class::ConstantInvokeDynamic;
 use crate::StackFrame;
 use crate::bytecode_class::Blob;
-use crate::java_class::JavaClassInstance;
+use crate::java_class::{JavaClassInstance, MethodCallResult};
 use crate::java_class::get_nb_arguments;
 use crate::jvm::JavaInstance;
-use crate::native_java_classes::NativeDoubleInstance;
+use crate::native_java_classes::{NativeDoubleInstance, NativeGenericExceptionClass};
 use crate::native_java_classes::NativeFloatInstance;
 use crate::native_java_classes::NativeIntegerInstance;
 use crate::native_java_classes::NativeLongInstance;
@@ -29,7 +29,15 @@ pub trait ByteCodeInstruction {
 pub enum InstrNextAction {
     NEXT,
     RETURN,
-    GOTO(usize)
+    GOTO(usize),
+    EXCEPTION(Arc<Mutex<dyn JavaInstance>>)
+}
+
+#[macro_export]
+macro_rules! exception {
+    ( $name:expr, $message:expr ) => {
+        InstrNextAction::EXCEPTION(Arc::new(Mutex::new(NativeGenericExceptionClass::new(&$name.to_string(), &$message.to_string()))))
+    };
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -905,6 +913,8 @@ impl ByteCodeInstruction for InstrIDiv {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
+        if nb1 == 0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_int(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
@@ -916,6 +926,8 @@ impl ByteCodeInstruction for InstrLDiv {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
+        if nb1 == 0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_long(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
@@ -927,6 +939,8 @@ impl ByteCodeInstruction for InstrFDiv {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
+        if nb1 == 0.0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_float(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
@@ -938,6 +952,8 @@ impl ByteCodeInstruction for InstrDDiv {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
+        if nb1 == 0.0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_double(nb2 / nb1);
         return InstrNextAction::NEXT;
     }
@@ -951,6 +967,8 @@ impl ByteCodeInstruction for InstrIRem {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_int();
         let nb2 = sf.pop_int();
+        if nb1 == 0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_int(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
@@ -962,6 +980,8 @@ impl ByteCodeInstruction for InstrLRem {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_long();
         let nb2 = sf.pop_long();
+        if nb1 == 0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_long(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
@@ -973,6 +993,8 @@ impl ByteCodeInstruction for InstrFRem {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_float();
         let nb2 = sf.pop_float();
+        if nb1 == 0.0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_float(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
@@ -984,6 +1006,8 @@ impl ByteCodeInstruction for InstrDRem {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let nb1 = sf.pop_double();
         let nb2 = sf.pop_double();
+        if nb1 == 0.0 { return exception!("java/lang/ArithmeticException", "/ by zero"); }
+
         sf.push_double(nb2 % nb1);
         return InstrNextAction::NEXT;
     }
@@ -1925,8 +1949,12 @@ pub struct InstrInvokeStatic { class_name: String, method_name: String, type_des
 impl ByteCodeInstruction for InstrInvokeStatic {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         let class = get_class(&self.class_name);
-        class.execute_static_method(sf, &self.method_name, self.nb_args);
-        return InstrNextAction::NEXT;
+        let result = class.execute_static_method(sf, &self.method_name, self.nb_args);
+
+        match result {
+            MethodCallResult::SUCCESS => InstrNextAction::NEXT,
+            MethodCallResult::EXCEPTION(e) => InstrNextAction::EXCEPTION(e)
+        }
     }
     fn print(&self) { println!("      invokestatic {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
 }
@@ -1976,9 +2004,12 @@ impl ByteCodeInstruction for InstrInvokeDynamic {
         type_desc.push_str(")V");
 
         let class = get_class(&bootstrap.class_name);
-        class.execute_static_method(sf, &bootstrap.method_name, self.method_nb_args);
+        let result = class.execute_static_method(sf, &bootstrap.method_name, self.method_nb_args);
 
-        return InstrNextAction::NEXT;
+        match result {
+            MethodCallResult::SUCCESS => InstrNextAction::NEXT,
+            MethodCallResult::EXCEPTION(e) => InstrNextAction::EXCEPTION(e)
+        }
     }
     fn print(&self) { println!("      invokedynamic {} {}{}", self.bootstrap_method_idx, self.method_name, self.method_type); }
 }
@@ -2031,6 +2062,15 @@ impl ByteCodeInstruction for InstrArrayLength {
     fn print(&self) { println!("      arraylength"); }
 }
 
+pub struct InstrAThrow { }
+impl ByteCodeInstruction for InstrAThrow {
+    fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
+        let exception = sf.pop();
+        return InstrNextAction::EXCEPTION(exception.clone());
+    }
+    fn print(&self) { println!("      arraylength"); }
+}
+
 ///////////// 0xc
 
 pub struct InstrCheckCast { class_name: String }
@@ -2041,13 +2081,11 @@ impl ByteCodeInstruction for InstrCheckCast {
             let object = arg.lock().unwrap();
             object.get_class_name().eq(&self.class_name) || object.supports_interface(&self.class_name)
         };
-        if  is_cast_ok {
+        if is_cast_ok {
             sf.push(arg);
             return InstrNextAction::NEXT;
         } else {
-            // TODO: throw an exception when the mechanism is implemented
-            sf.push(arg);
-            return InstrNextAction::NEXT;
+            return exception!("java/lang/ClassCastException", "cannot be cast");
         }
     }
     fn print(&self) { println!("      checkcast"); }
@@ -2101,8 +2139,37 @@ impl ByteCodeInstruction for InstrIfNotNull {
 
 ////////////////////////////////////////////////////////////////////////////////////
 
+pub struct Exception {
+    pub start_pc: usize,
+    pub end_pc: usize,
+    pub handler_pc: usize,
+    pub name: String
+}
+
+impl Exception {
+    pub fn catches(&self, exception: Arc<Mutex<dyn JavaInstance>>, instr_idx: usize) -> Option<usize> {
+        if self.start_pc > instr_idx || self.end_pc < instr_idx { return None; }
+
+        let mut class_name= exception.lock().unwrap().get_class_name();
+
+        while !class_name.eq("") {
+            if class_name.eq(&self.name) {
+                return Some(self.handler_pc);
+            }
+
+            let class = get_class(&class_name);
+            class_name = class.get_parent();
+        }
+
+        return None;
+    }
+}
+
 pub struct ByteCode {
-    pub instructions: Vec<Box<dyn ByteCodeInstruction>>
+    pub instructions: Vec<Box<dyn ByteCodeInstruction>>,
+    pub exceptions: Vec<Exception>,
+    address_map: HashMap<usize, usize>,
+    pub line_number_table: Vec<(usize, usize)>
 }
 
 impl ByteCode {
@@ -2124,6 +2191,7 @@ impl ByteCode {
 
         let mut data_offset: usize;
         let mut address_map: HashMap<usize, usize> = HashMap::new();
+        let line_number_table: Vec<(usize, usize)> = Vec::new();
         let mut instr_idx: usize = 0;
 
         while data.has_more_data() {
@@ -2469,11 +2537,18 @@ impl ByteCode {
                     _ => panic!("Unknown class")
                 },
                 0xbe => Box::new(InstrArrayLength {}),
-//                0xbf => athrow
+                0xbf => Box::new(InstrAThrow {}),
                 0xc0 => {
                     let idx = data.get_u16size();
                     match constants_class.get(&idx) {
-                        Some(class) => Box::new(InstrCheckCast { class_name: class.name.clone() }),
+                        Some(class) => {
+                            let class_name = if class.name.starts_with("[") {
+                                "java/util/Arrays".to_string()
+                            } else {
+                                class.name.clone()
+                            };
+                            Box::new(InstrCheckCast { class_name: class_name })
+                        },
                         _ => panic!("Unknown class at index {}", idx)
                     }
                 },
@@ -2505,7 +2580,37 @@ impl ByteCode {
         }
 
         ByteCode {
-            instructions
+            instructions,
+            exceptions: Vec::new(),
+            address_map,
+            line_number_table
         }
+    }
+
+    pub fn add_exception(&mut self, start_pc: usize, end_pc: usize, handler_pc: usize, name: &String) {
+        self.exceptions.push(Exception {
+            start_pc: *self.address_map.get(&start_pc).unwrap(),
+            end_pc: *self.address_map.get(&end_pc).unwrap(),
+            handler_pc: *self.address_map.get(&handler_pc).unwrap(),
+            name: name.clone()
+        });
+
+        if get_debug() >= 2 {
+            println!("    Method exception [{}..{}] -> {}, type={}",
+                *self.address_map.get(&start_pc).unwrap(),
+                *self.address_map.get(&end_pc).unwrap(),
+                *self.address_map.get(&handler_pc).unwrap(),
+                name);
+        }
+    }
+
+    pub fn add_line_number(&mut self, line: usize, bytecode_offset: usize) {
+        let instruction = match self.address_map.get(&bytecode_offset) {
+            Some(instr) => *instr,
+            None => panic!("Cannot find instruction at bytecode offset {}", bytecode_offset)
+        };
+        if get_debug() >= 2 { println!("        Instr {} => Line {}", instruction, line); }
+
+        self.line_number_table.push((instruction, line));
     }
 }

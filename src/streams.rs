@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::get_class;
+use crate::java_class::MethodCallResult;
 use crate::jvm::JavaInstance;
 use crate::jvm::StackFrame;
 use crate::java_class::JavaClass;
@@ -116,7 +117,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
         println!("Native Stream class");
     }
 
-    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) {
+    fn execute_static_method(&self, sf: &mut StackFrame, method_name: &String, _nb_args: usize) -> MethodCallResult {
         if method_name.eq("metafactory") {
             let _arg3 = sf.pop();
             let arg2 = sf.pop_int();
@@ -164,7 +165,7 @@ impl JavaClass for NativeLambdaMetafactoryClass {
                 },
                 _ => panic!("LambdaMetafactory.metafactory(): Unsupported command {}", action)
             };
-            return;
+            return MethodCallResult::SUCCESS;
         }
         panic!("Native class {} does not have static method [{}]", self.get_name(), method_name);
     }
