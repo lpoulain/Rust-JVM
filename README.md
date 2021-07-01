@@ -3,7 +3,15 @@ A far-from-complete Java Virtual Machine written in Rust
 
 ## What is supported
 
-This JVM implements most bytecode instructions. Its native class support however stays limited, and it has not been tested with many classes. The files in the `java` folder (`Hello.java`, `Arithm.java`, `Streams.java`, `Person.java`. `TestThread.java`, `Exceptions.java` and `Mandelbrot.java`) show what is currently being supported.
+This JVM implements most bytecode instructions. Their implementation may however not be complete as it has been tested with a limited number of classes. Moreover, the JVM's native class support stays limited. The files in the `java` folder show what is currently being supported:
+
+- `Hello.java`: basic Hello World
+- `Arithm.java`: simple integer arithmetic
+- `Mandelbrot.java` floating-point calculations
+- `Streams.java`: a Java streams example using `map()`, `filter()` and `forEach()`
+- `Person.java`: class, `switch` statements and enums
+- `TestThread.java`: multi-threading
+- `Exceptions.java`: exception handling
 
 See also the following to understand more about Java/Scala/Kotlin code gets converted into bytecode instructions:
 
@@ -35,8 +43,6 @@ Execute 1       ldc "Hello, World!"
 Execute 2       invokevirtual java/io/PrintStream.println(Ljava/lang/String;)V
 Hello, World!
 Execute 3       return
-
-
 
 > ./target/debug/jvm Person
 John Smith
