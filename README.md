@@ -72,7 +72,7 @@ Thread: Thread-2, 1
 Thread Thread-1 exiting.
 Thread Thread-2 exiting.
 
-> ./target/debug/jvm Exceptions 123 2
+> ./target/debug/jvm Exceptions 123 0
 Exception caught with the following stack trace:
 Exception in java/lang/ArithmeticException: / by zero
         at Exceptions.operation(Exceptions.java:15)
