@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::collections::HashMap;
 
+use crate::asm::bytecode_to_intel_asm;
 use crate::bytecode::InstrNextAction;
 use crate::get_class;
 use crate::get_debug;
@@ -195,6 +196,15 @@ impl JavaClass for BytecodeClass {
 
     fn put_static_object(&self, field_name: &String, value: Arc<Mutex<dyn JavaInstance>>) {
         self.static_fields.lock().unwrap().insert(field_name.clone(), value.clone());
+    }
+
+    fn convert_to_intel_asm(&self, method_name: &String) {
+        let bytecode = match self.methods.get(method_name) {
+            Some(b) => b,
+            _ => panic!("Unknown method {} in class {}", method_name, self.get_name())
+        };
+
+        bytecode_to_intel_asm(&self.get_name(), bytecode);
     }
 }
 

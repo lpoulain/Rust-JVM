@@ -9,8 +9,8 @@ This JVM implements most bytecode instructions. Their implementation may however
 - `Arithm.java`: simple integer arithmetic
 - `Mandelbrot.java` floating-point calculations
 - `Streams.java`: a Java streams example using `map()`, `filter()` and `forEach()`
-- `Person.java`: class, `switch` statements and enums
-- `TestThread.java`: multi-threading
+- `Person.java`, `AgeRange`: class, `switch` statements and enums
+- `TestThread.java`, `RunnableDemo.java`: multi-threading
 - `Exceptions.java`: exception handling
 
 See also the following to understand more about Java/Scala/Kotlin code gets converted into bytecode instructions:
@@ -19,6 +19,7 @@ See also the following to understand more about Java/Scala/Kotlin code gets conv
 - [Java Streams overview](streams.md)
 - [The Java switch statement](switch.md)
 - [Java enums](enums.md)
+- [Compiling bytecode into assembly](assembly.md)
 
 ## How to use it
 

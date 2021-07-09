@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::asm::Assembly;
 use crate::{get_class, get_debug};
 use crate::bytecode_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble };
 use crate::bytecode_class::ConstantString;
@@ -24,6 +25,7 @@ pub trait ByteCodeInstruction {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction;
     fn print(&self);
     fn set_branch(&mut self, _address_map: &HashMap<usize, usize>) {}
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String { self.print(); panic!("Instruction does not support conversion to x64 assembly"); }
 }
 
 pub enum InstrNextAction {
@@ -67,6 +69,9 @@ impl ByteCodeInstruction for InstrIConst {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iconst_{}", self.value); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push {:#x}", self.value )
+    }
 }
 
 pub struct InstrLConst0 { }
@@ -141,6 +146,9 @@ impl ByteCodeInstruction for InstrBiPush {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      bipush {}", self.value); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push {:#x}", self.value)
+    }
 }
 
 pub struct InstrSiPush { value: i16 }
@@ -150,6 +158,9 @@ impl ByteCodeInstruction for InstrSiPush {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      sipush {}", self.value); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push {:#x}", self.value)
+    }
 }
 
 pub struct InstrILoad { variable: u8 }
@@ -159,6 +170,9 @@ impl ByteCodeInstruction for InstrILoad {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iload {}", self.variable); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push r{}", self.variable+8)
+    }
 }
 
 pub struct InstrLLoad { variable: u8 }
@@ -195,6 +209,9 @@ impl ByteCodeInstruction for InstrALoad {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aload {}", self.variable); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push r{}", 8+self.variable)
+    }
 }
 
 pub struct InstrLdc { value: Arc<Mutex<dyn JavaInstance>> }
@@ -207,6 +224,11 @@ impl ByteCodeInstruction for InstrLdc {
         print!("      ldc ");
         self.value.lock().unwrap().print();
         println!();
+    }
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        let str = self.value.lock().unwrap().get_string();
+        let str_label = assembly.add_string(&str);
+        format!("    mov rax, qword {}    ; \"{}\"\n    push rax", str_label, str)
     }
 }
 
@@ -403,6 +425,9 @@ impl ByteCodeInstruction for InstrIStore {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore {}", self.variable); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop r{}", 8+self.variable)
+    }
 }
 
 pub struct InstrLStore { variable: u8 }
@@ -439,6 +464,9 @@ impl ByteCodeInstruction for InstrAStore {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      astore {}", self.variable); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop r{}", 8+self.variable)
+    }
 }
 
 pub struct InstrIStore0 {}
@@ -457,6 +485,9 @@ impl ByteCodeInstruction for InstrIStore1 {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore_1"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        "    pop r8".to_string()
+    }
 }
 
 pub struct InstrIStore2 {}
@@ -785,6 +816,9 @@ impl ByteCodeInstruction for InstrIAdd {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iadd"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rbx\n    pop rax\n    add rax, rbx\n    push rax")
+    }
 }
 
 pub struct InstrLAdd {}
@@ -829,6 +863,9 @@ impl ByteCodeInstruction for InstrISub {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      isub"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rbx\n    pop rax\n    sub rax, rbx\n    push rax")
+    }
 }
 
 pub struct InstrLSub {}
@@ -873,6 +910,9 @@ impl ByteCodeInstruction for InstrIMul {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      imul"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rdx\n    pop rax\n    mul rax\n    push rax")
+    }
 }
 
 pub struct InstrLMul {}
@@ -919,6 +959,9 @@ impl ByteCodeInstruction for InstrIDiv {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      idiv"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop r15\n    xor rdx, rdx\n    pop rax\n    idiv r15\n    push rax")
+    }
 }
 
 pub struct InstrLDiv {}
@@ -1212,6 +1255,9 @@ impl ByteCodeInstruction for InstrIInc {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iinc {} {}", self.idx, self.count); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    add r{}, {:#x}", 8+self.idx, self.count)
+    }
 }
 
 pub struct InstrI2L {}
@@ -1650,6 +1696,10 @@ impl ByteCodeInstruction for InstrIfICmpGe {
             _ => panic!("Unknown branch position {}", self.branch)
         }
     }
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        assembly.add_jump(self.branch);
+        format!("    pop rbx\n    pop rax\n    cmp rax, rbx\n    jge __branch{}", self.branch)
+    }
 }
 
 pub struct InstrIfICmpGt { branch: usize }
@@ -1739,6 +1789,10 @@ impl ByteCodeInstruction for InstrGoto {
             Some(instr_idx) => { self.branch = *instr_idx; },
             _ => panic!("Unknown branch position {}", self.branch)
         }
+    }
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        assembly.add_jump(self.branch);
+        format!("    jmp __branch{}", self.branch)
     }
 }
 
@@ -1870,6 +1924,7 @@ impl ByteCodeInstruction for InstrReturn {
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      return"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String { "    mov rax, 0x02000001\n    mov rdi, 0\n    syscall".to_string() }
 }
 
 pub struct InstrGetStatic { class_name: String, field_name: String, type_desc: String }
@@ -1880,6 +1935,7 @@ impl ByteCodeInstruction for InstrGetStatic {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      getstatic {}.{} -> {}", self.class_name, self.field_name, self.type_desc); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String { "    nop".to_string() }
 }
 pub struct InstrPutStatic { class_name: String, field_name: String, type_desc: String }
 impl ByteCodeInstruction for InstrPutStatic {
@@ -1926,6 +1982,17 @@ impl ByteCodeInstruction for InstrInvokeVirtual {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokevirtual {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        match &self.method_name[..] {
+            "print" => {
+                format!("    pop rdi\n    mov rsi, rdi\n    call __string_length\n    mov rdx, rax\n    mov rax, 0x02000004\n    mov rdi, 1\n    syscall")
+            },
+            "println" => {
+                format!("    pop rdi\n    mov rsi, rdi\n    call __string_length\n    mov rdx, rax\n    mov rax, 0x02000004\n    mov rdi, 1\n    syscall\n    mov rax, 0x02000004\n    mov rdi, 1\n    mov rsi, qword str_cr\n    mov rdx, 1\n    syscall")
+            },
+            _ => panic!("{}.{}() conversion to x64 assembly not implemented", self.class_name, self.method_name)
+        }
+    }
 }
 
 pub struct InstrInvokeSpecial { class_name: String, method_name: String, type_desc: String, nb_args: usize }

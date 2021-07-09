@@ -5,6 +5,7 @@ mod bytecode_class;
 mod native_java_classes;
 mod streams;
 mod bytecode_test;
+mod asm;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -112,6 +113,11 @@ fn main() {
                 .long("debug")
                 .takes_value(true)
                 .help("Debug level"))
+        .arg(Arg::with_name("asm")
+                .short("a")
+                .long("asm")
+                .takes_value(false)
+                .help("Compiles into assembly"))
         .arg(Arg::with_name("class")
                 .takes_value(false)
                 .required(true))
@@ -127,6 +133,7 @@ fn main() {
     unsafe {
         DEBUG = debug;
     }
+    let asm = matches.is_present("asm");
     let class_name = matches.value_of("class").unwrap();
     let arguments: Vec<&str> = match matches.values_of("arguments") {
         Some(values) => values.collect(),
@@ -203,6 +210,11 @@ fn main() {
     let java_class = get_class(&String::from(class_name));
     if debug >= 2 { java_class.print(); }
 
+    if asm {
+        java_class.convert_to_intel_asm(&"main".to_string());
+        return;
+    }
+
     let result = java_class.execute_static_method(&mut sf, &"main".to_string(), 1);
 
     match result {
@@ -210,8 +222,6 @@ fn main() {
         MethodCallResult::EXCEPTION(e) => {
             let mut object = e.lock().unwrap();
             object.execute_method(&mut sf, &"printStackTrace".to_string(), e.clone(), Vec::new());
-//            let message = sf.pop_string();
-//            println!("Exception! {}: {}", object.get_class_name(), message);
         }
     };
 
