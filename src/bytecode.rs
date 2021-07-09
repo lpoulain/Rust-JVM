@@ -26,6 +26,8 @@ pub trait ByteCodeInstruction {
     fn print(&self);
     fn set_branch(&mut self, _address_map: &HashMap<usize, usize>) {}
     fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String { self.print(); panic!("Instruction does not support conversion to x64 assembly"); }
+    fn convert_to_macos_intel_asm(&self, assembly: &mut Assembly) -> String { self.convert_to_intel_asm(assembly) }
+    fn convert_to_linux_intel_asm(&self, assembly: &mut Assembly) -> String { self.convert_to_intel_asm(assembly) }
 }
 
 pub enum InstrNextAction {
@@ -1924,7 +1926,8 @@ impl ByteCodeInstruction for InstrReturn {
         return InstrNextAction::RETURN;
     }
     fn print(&self) { println!("      return"); }
-    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String { "    mov rax, 0x02000001\n    mov rdi, 0\n    syscall".to_string() }
+    fn convert_to_linux_intel_asm(&self, _assembly: &mut Assembly) -> String { "    mov rax, 60\n    mov rdi, 0\n    syscall".to_string() }
+    fn convert_to_macos_intel_asm(&self, _assembly: &mut Assembly) -> String { "    mov rax, 0x02000001\n    mov rdi, 0\n    syscall".to_string() }
 }
 
 pub struct InstrGetStatic { class_name: String, field_name: String, type_desc: String }
@@ -1982,7 +1985,18 @@ impl ByteCodeInstruction for InstrInvokeVirtual {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      invokevirtual {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
-    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+    fn convert_to_linux_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        match &self.method_name[..] {
+            "print" => {
+                format!("    pop rdi\n    mov rsi, rdi\n    call __string_length\n    mov rdx, rax\n    mov rax, 1\n    mov rdi, 1\n    syscall")
+            },
+            "println" => {
+                format!("    pop rdi\n    mov rsi, rdi\n    call __string_length\n    mov rdx, rax\n    mov rax, 1\n    mov rdi, 1\n    syscall\n    mov rax, 1\n    mov rdi, 1\n    mov rsi, qword str_cr\n    mov rdx, 1\n    syscall")
+            },
+            _ => panic!("{}.{}() conversion to x64 assembly not implemented", self.class_name, self.method_name)
+        }
+    }
+    fn convert_to_macos_intel_asm(&self, _assembly: &mut Assembly) -> String {
         match &self.method_name[..] {
             "print" => {
                 format!("    pop rdi\n    mov rsi, rdi\n    call __string_length\n    mov rdx, rax\n    mov rax, 0x02000004\n    mov rdi, 1\n    syscall")

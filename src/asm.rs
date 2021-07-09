@@ -2,17 +2,16 @@ use std::{collections::{HashSet, hash_map::DefaultHasher}, fs::File, hash::{Hash
 
 use crate::bytecode::ByteCode;
 
-pub fn bytecode_to_intel_asm(class_name: &String, bytecode: &ByteCode) {
+pub enum Arch {
+    LinuxX64,
+    MacosX64
+}
+
+pub fn bytecode_to_asm(class_name: &String, bytecode: &ByteCode, arch: Arch) {
     let mut assembly = Assembly {
         jumps: HashSet::new(),
         strings: HashSet::new()
     };
-
-    let mut asm_instructions: Vec<String> = Vec::new();
-
-    for instr in bytecode.instructions.iter() {
-        asm_instructions.push(instr.convert_to_intel_asm(&mut assembly));
-    }
 
     let mut filename = class_name.clone();
     filename.push_str(".asm");
@@ -20,8 +19,22 @@ pub fn bytecode_to_intel_asm(class_name: &String, bytecode: &ByteCode) {
     match File::create(filename) {
         Err(why) => panic!("Couldn't create {}.asm: {}", class_name, why),
         Ok(mut file) => {
+            let mut asm_instructions: Vec<String> = Vec::new();
+
+            for instr in bytecode.instructions.iter() {
+                let asm_instruction = match arch {
+                    Arch::LinuxX64 => instr.convert_to_linux_intel_asm(&mut assembly),
+                    Arch::MacosX64 => instr.convert_to_macos_intel_asm(&mut assembly)
+                };
+                asm_instructions.push(asm_instruction);
+            }
+        
             let mut content: Vec<String> = Vec::new();
-            content.push("    global    start\n    section   .text\nstart:\n".to_string());
+
+            match arch {
+                Arch::LinuxX64 => { content.push("    global    _start\n    section   .text\n_start:\n".to_string()); },
+                Arch::MacosX64 => { content.push("    global    start\n    section   .text\nstart:\n".to_string()); }
+            };
         
             let mut instr_idx: usize = 0;
             for instr in asm_instructions.iter() {

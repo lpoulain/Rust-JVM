@@ -116,8 +116,8 @@ fn main() {
         .arg(Arg::with_name("asm")
                 .short("a")
                 .long("asm")
-                .takes_value(false)
-                .help("Compiles into assembly"))
+                .takes_value(true)
+                .help("Compiles into assembly (macos or linux)"))
         .arg(Arg::with_name("class")
                 .takes_value(false)
                 .required(true))
@@ -133,7 +133,7 @@ fn main() {
     unsafe {
         DEBUG = debug;
     }
-    let asm = matches.is_present("asm");
+    let asm = matches.value_of("asm");
     let class_name = matches.value_of("class").unwrap();
     let arguments: Vec<&str> = match matches.values_of("arguments") {
         Some(values) => values.collect(),
@@ -210,10 +210,13 @@ fn main() {
     let java_class = get_class(&String::from(class_name));
     if debug >= 2 { java_class.print(); }
 
-    if asm {
-        java_class.convert_to_intel_asm(&"main".to_string());
-        return;
-    }
+    match asm {
+        Some(arch) => {
+            java_class.convert_to_asm(&"main".to_string(), arch);
+            return;
+        },
+        None => {}
+    };
 
     let result = java_class.execute_static_method(&mut sf, &"main".to_string(), 1);
 

@@ -7,7 +7,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::collections::HashMap;
 
-use crate::asm::bytecode_to_intel_asm;
+use crate::asm::Arch;
+use crate::asm::bytecode_to_asm;
 use crate::bytecode::InstrNextAction;
 use crate::get_class;
 use crate::get_debug;
@@ -198,13 +199,19 @@ impl JavaClass for BytecodeClass {
         self.static_fields.lock().unwrap().insert(field_name.clone(), value.clone());
     }
 
-    fn convert_to_intel_asm(&self, method_name: &String) {
+    fn convert_to_asm(&self, method_name: &String, arch: &str) {
         let bytecode = match self.methods.get(method_name) {
             Some(b) => b,
             _ => panic!("Unknown method {} in class {}", method_name, self.get_name())
         };
 
-        bytecode_to_intel_asm(&self.get_name(), bytecode);
+        let arch = match arch {
+            "linux" => Arch::LinuxX64,
+            "macos" => Arch::MacosX64,
+            _ => panic!("Unsupported architecture: {}", arch)
+        };
+
+        bytecode_to_asm(&self.get_name(), bytecode, arch);
     }
 }
 

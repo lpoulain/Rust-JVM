@@ -55,7 +55,7 @@ pub trait JavaClass {
     fn has_static_init(&self) -> bool { false }
     fn get_dependent_classes(&self) -> Vec<String> { Vec::new() }
     fn get_bootstrap_method(&self, _idx: usize) -> Option<&AttributeBootstrapMethod> { return None; }
-    fn convert_to_intel_asm(&self, _method_name: &String) { panic!("Class {} does not support conversion to x64 assembly", self.get_name()); }
+    fn convert_to_asm(&self, _method_name: &String, _arch: &str) { panic!("Class {} does not support conversion to assembly", self.get_name()); }
     fn get_name(&self) -> String;
     fn print(&self) { }
     fn get_parent(&self) -> String { "".to_string() }
