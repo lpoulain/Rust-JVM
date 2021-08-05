@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use rand::Rng;
+
 use crate::asm::Assembly;
 use crate::{get_class, get_debug};
 use crate::bytecode_class::{ConstantField, ConstantFloat, ConstantInteger, ConstantLong, ConstantDouble };
@@ -101,6 +103,9 @@ impl ByteCodeInstruction for InstrFConst0 {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fconst_0"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push __float32__(0.0)")
+    }
 }
 
 pub struct InstrFConst1 { }
@@ -110,6 +115,9 @@ impl ByteCodeInstruction for InstrFConst1 {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fconst_1"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push __float32__(1.0)")
+    }
 }
 
 pub struct InstrFConst2 { }
@@ -119,6 +127,9 @@ impl ByteCodeInstruction for InstrFConst2 {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fconst_2"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    push __float32__(2.0)")
+    }
 }
 
 pub struct InstrDConst0 { }
@@ -172,8 +183,8 @@ impl ByteCodeInstruction for InstrILoad {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iload {}", self.variable); }
-    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
-        format!("    push r{}", self.variable+8)
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        format!("    push r{}", assembly.var_to_reg(self.variable))
     }
 }
 
@@ -193,6 +204,9 @@ impl ByteCodeInstruction for InstrFLoad {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fload {}", self.variable); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    movq rax, xmm{}\n    push rax", self.variable)
+    }
 }
 
 pub struct InstrDLoad { variable: u8 }
@@ -211,12 +225,12 @@ impl ByteCodeInstruction for InstrALoad {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      aload {}", self.variable); }
-    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
-        format!("    push r{}", 8+self.variable)
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        format!("    push r{}", assembly.var_to_reg(self.variable))
     }
 }
 
-pub struct InstrLdc { value: Arc<Mutex<dyn JavaInstance>> }
+pub struct InstrLdc { value: Arc<Mutex<dyn JavaInstance>>, instance_type: String }
 impl ByteCodeInstruction for InstrLdc {
     fn execute(&self, sf: &mut StackFrame) -> InstrNextAction {
         sf.push(self.value.clone());
@@ -228,9 +242,26 @@ impl ByteCodeInstruction for InstrLdc {
         println!();
     }
     fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
-        let str = self.value.lock().unwrap().get_string();
-        let str_label = assembly.add_string(&str);
-        format!("    mov rax, qword {}    ; \"{}\"\n    push rax", str_label, str)
+        match &self.instance_type[..] {
+            "string" => {
+                let str = self.value.lock().unwrap().get_string();
+                let str_label = assembly.add_string(&str);
+                format!("    mov rax, qword {}    ; \"{}\"\n    push rax", str_label, str)
+            },
+            "float" => {
+                let float = self.value.lock().unwrap().get_float();
+                if float.round().eq(&float) {
+                    format!("    mov dword eax, __float32__({}.0)    ; \"{}\"\n    push rax", float, float)
+                } else {
+                    format!("    mov dword eax, __float32__({})    ; \"{}\"\n    push rax", float, float)
+                }
+            },
+            "int" => {
+                let int = self.value.lock().unwrap().get_int();
+                format!("    mov rax, {}    ; \"{}\"\n    push rax", int, int)
+            }
+            _ => panic!("ldc instruction conversion to assembly does not support {} type", self.instance_type)
+        }
     }
 }
 
@@ -427,8 +458,8 @@ impl ByteCodeInstruction for InstrIStore {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      istore {}", self.variable); }
-    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
-        format!("    pop r{}", 8+self.variable)
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        format!("    pop r{}", assembly.var_to_reg(self.variable))
     }
 }
 
@@ -448,6 +479,9 @@ impl ByteCodeInstruction for InstrFStore {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fstore {}", self.variable); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rax\n    movq xmm{}, rax", self.variable)
+    }
 }
 
 pub struct InstrDStore { variable: u8 }
@@ -466,8 +500,8 @@ impl ByteCodeInstruction for InstrAStore {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      astore {}", self.variable); }
-    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
-        format!("    pop r{}", 8+self.variable)
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        format!("    pop r{}", assembly.var_to_reg(self.variable))
     }
 }
 
@@ -843,6 +877,9 @@ impl ByteCodeInstruction for InstrFAdd {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fadd"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rax\n    movq xmm14, rax\n    pop rax\n    movq xmm15, rax\n    addss xmm15, xmm14\n    movq rax, xmm15\n    push rax")
+    }
 }
 
 pub struct InstrDAdd {}
@@ -890,6 +927,9 @@ impl ByteCodeInstruction for InstrFSub {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fsub"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rax\n    movq xmm14, rax\n    pop rax\n    movq xmm15, rax\n    subss xmm15, xmm14\n    movq rax, xmm15\n    push rax")
+    }
 }
 
 pub struct InstrDSub {}
@@ -937,6 +977,9 @@ impl ByteCodeInstruction for InstrFMul {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fmul"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rax\n    movq xmm14, rax\n    pop rax\n    movq xmm15, rax\n    mulss xmm15, xmm14\n    movq rax, xmm15\n    push rax")
+    }
 }
 
 pub struct InstrDMul {}
@@ -990,6 +1033,9 @@ impl ByteCodeInstruction for InstrFDiv {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fdiv"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rax\n    movq xmm14, rax\n    pop rax\n    movq xmm15, rax\n    divss xmm15, xmm14\n    movq rax, xmm15\n    push rax")
+    }
 }
 
 pub struct InstrDDiv {}
@@ -1257,8 +1303,8 @@ impl ByteCodeInstruction for InstrIInc {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      iinc {} {}", self.idx, self.count); }
-    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
-        format!("    add r{}, {:#x}", 8+self.idx, self.count)
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        format!("    add r{}, {:#x}", assembly.var_to_reg(self.idx), self.count)
     }
 }
 
@@ -1280,6 +1326,9 @@ impl ByteCodeInstruction for InstrI2F {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      i2f"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        "    pop rax\n    cvtsi2ss xmm15, rax\n    movq rax, xmm15\n    push rax".to_string()
+    }
 }
 
 pub struct InstrI2D {}
@@ -1350,6 +1399,9 @@ impl ByteCodeInstruction for InstrF2D {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      f2d"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rax\n    movq xmm15, rax\n    cvtss2sd xmm14, xmm15\n    movq rax, xmm14\n    push rax")
+    }
 }
 
 pub struct InstrD2I {}
@@ -1382,6 +1434,9 @@ impl ByteCodeInstruction for InstrD2F {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      d2f"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        format!("    pop rax\n    movq xmm15, rax\n    cvtsd2ss xmm14, xmm15\n    movq rax, xmm14\n    push rax")
+    }
 }
 
 pub struct InstrI2B {}
@@ -1472,6 +1527,13 @@ impl ByteCodeInstruction for InstrFCmpg {
         return InstrNextAction::NEXT;
     }
     fn print(&self) { println!("      fcmpg"); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        let mut rng = rand::thread_rng();
+        let n2: u16 = rng.gen();
+        format!("    pop rax\n    movq xmm15, rax\n    pop rax\n    movq xmm14, rax\n    ucomiss xmm14, xmm15\n    jae __branchfcmp{}\n    push -1\n    jmp __branchfcmpend{}\n__branchfcmp{}:\n    push 1\n__branchfcmpend{}:", n2, n2, n2, n2)
+//        format!("    pop rax\n    movq xmm15, rax\n    pop rax\n    movq xmm14, rax\n    ucomiss xmm14, xmm15")
+    }
+
 }
 
 pub struct InstrDCmpl {}
@@ -1584,6 +1646,11 @@ impl ByteCodeInstruction for InstrIfge {
             _ => panic!("Unknown branch position {}", self.branch)
         }
     }
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        assembly.add_jump(self.branch);
+        format!("    pop rax\n    cmp rax, 0\n    jge __branch{}", self.branch)
+//        format!("    jae __branch{}", self.branch)
+    }
 }
 
 pub struct InstrIfgt { branch: usize }
@@ -1619,6 +1686,10 @@ impl ByteCodeInstruction for InstrIfle {
             Some(instr_idx) => { self.branch = *instr_idx; },
             _ => panic!("Unknown branch position {}", self.branch)
         }
+    }
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        assembly.add_jump(self.branch);
+        format!("    pop rax\n    cmp rax, 0\n    jle __branch{}", self.branch)
     }
 }
 
@@ -1660,6 +1731,10 @@ impl ByteCodeInstruction for InstrIfICmpNe {
             _ => panic!("Unknown branch position {}", self.branch)
         }
     }
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        assembly.add_jump(self.branch);
+        format!("    pop rbx\n    pop rax\n    cmp rax, rbx\n    jne __branch{}", self.branch)
+    }
 }
 
 pub struct InstrIfICmpLt { branch: usize }
@@ -1679,6 +1754,10 @@ impl ByteCodeInstruction for InstrIfICmpLt {
             _ => panic!("Unknown branch position {}", self.branch)
         }
     }
+    fn convert_to_intel_asm(&self, assembly: &mut Assembly) -> String {
+        assembly.add_jump(self.branch);
+        format!("    pop rbx\n    pop rax\n    cmp rax, rbx\n    jl __branch{}", self.branch)
+    }    
 }
 
 pub struct InstrIfICmpGe { branch: usize }
@@ -2038,6 +2117,24 @@ impl ByteCodeInstruction for InstrInvokeStatic {
         }
     }
     fn print(&self) { println!("      invokestatic {}.{}{}(<{} arguments>)", self.class_name, self.method_name, self.type_desc, self.nb_args); }
+    fn convert_to_intel_asm(&self, _assembly: &mut Assembly) -> String {
+        if self.class_name.eq("java/lang/Math") {
+            match &self.method_name[..] {
+                "sqrt" => {
+                    return format!("    pop rax\n    movq xmm15, rax\n    sqrtsd xmm14, xmm15\n    movq rax, xmm14\n    push rax");
+                },
+                // Not an ideal implementation, but unfortunately SSE does not support log()
+                "log" => {
+                    return format!("    pop rax\n    movq xmm15, rax\n    sqrtsd xmm14, xmm15\n    sqrtsd xmm14, xmm14\n    movq rax, xmm14\n    push rax");
+                }
+                _ => {
+                    panic!("Static method Math.{}() does not support conversion to assembly", self.method_name);
+                }
+            }
+        };
+
+        panic!("Static method {}.{}() does not support conversion to assembly", self.class_name, self.method_name);
+    }
 }
 
 pub struct InstrInvokeInterface { class_name: String, method_name: String, type_desc: String, count: usize, nb_args: usize }
@@ -2302,13 +2399,13 @@ impl ByteCode {
                 0x12 => {
                     let idx = data.get_u8() as usize;
                     match constants_string_ref.get(&idx) {
-                        Some(string) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeStringInstance::new(string.value.clone()))) }),
+                        Some(string) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeStringInstance::new(string.value.clone()))), instance_type: "string".to_string() }),
                         _ => match constants_float.get(&idx) {
-                            Some(float) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeFloatInstance::new(float.value))) }),
+                            Some(float) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeFloatInstance::new(float.value))), instance_type: "float".to_string() }),
                             _ => match constants_integer.get(&idx) {
-                                Some(int) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeIntegerInstance::new(int.value))) }),
+                                Some(int) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeIntegerInstance::new(int.value))), instance_type: "int".to_string() }),
                                 _ =>  match constants_class.get(&idx) {
-                                    Some(class) => Box::new(InstrLdc { value: Arc::new(Mutex::new(JavaClassInstance::new(class.name.clone()))) }),
+                                    Some(class) => Box::new(InstrLdc { value: Arc::new(Mutex::new(JavaClassInstance::new(class.name.clone()))), instance_type: "class".to_string() }),
                                     _ => panic!("ldc: unknown index {}", idx)
                                 }
                             }
@@ -2318,11 +2415,11 @@ impl ByteCode {
                 0x13 => {
                     let idx = data.get_u16size();
                     match constants_string_ref.get(&idx) {
-                        Some(string) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeStringInstance::new(string.value.clone()))) }),
+                        Some(string) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeStringInstance::new(string.value.clone()))), instance_type: "string".to_string() }),
                         _ => match constants_float.get(&idx) {
-                            Some(float) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeFloatInstance::new(float.value))) }),
+                            Some(float) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeFloatInstance::new(float.value))), instance_type: "float".to_string() }),
                             _ => match constants_integer.get(&idx) {
-                                Some(int) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeIntegerInstance::new(int.value))) }),
+                                Some(int) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeIntegerInstance::new(int.value))), instance_type: "int".to_string() }),
                                 _ =>  panic!("ldc_w: unknown index {}", idx)
                             }
                         }
@@ -2331,9 +2428,9 @@ impl ByteCode {
                 0x14 => {
                     let idx = data.get_u16size();
                     match constants_double.get(&idx) {
-                        Some(double) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeDoubleInstance::new(double.value))) }),
+                        Some(double) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeDoubleInstance::new(double.value))), instance_type: "double".to_string() }),
                         _ => match constants_long.get(&idx) {
-                            Some(long) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeLongInstance::new(long.value))) }),
+                            Some(long) => Box::new(InstrLdc { value: Arc::new(Mutex::new(NativeLongInstance::new(long.value))), instance_type: "long".to_string() }),
                             _ => panic!("ldc2_w: unknown index {}", idx)
                         }
                     }

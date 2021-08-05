@@ -1,4 +1,4 @@
-use std::{collections::{HashSet, hash_map::DefaultHasher}, fs::File, hash::{Hash, Hasher}, io::Write};
+use std::{collections::{HashMap, HashSet, hash_map::DefaultHasher}, fs::File, hash::{Hash, Hasher}, io::Write};
 
 use crate::bytecode::ByteCode;
 
@@ -10,7 +10,9 @@ pub enum Arch {
 pub fn bytecode_to_asm(class_name: &String, bytecode: &ByteCode, arch: Arch) {
     let mut assembly = Assembly {
         jumps: HashSet::new(),
-        strings: HashSet::new()
+        strings: HashSet::new(),
+        variables: HashMap::new(),
+        register_idx: 7
     };
 
     let mut filename = class_name.clone();
@@ -55,7 +57,10 @@ pub fn bytecode_to_asm(class_name: &String, bytecode: &ByteCode, arch: Arch) {
             }
             content.push("str_cr: db 0ah, 0\n".to_string());
 
-            let final_content: String = content.iter().map(|x| x.clone()).collect();
+            let mut final_content: String = content.iter().map(|x| x.clone()).collect();
+            // asm optimization: the JVM is passing data between bytecode instructions through the stack
+            // bypass this by keeping the value in the rax register
+            final_content = final_content.replace("    push rax\n    pop rax\n", "");
 
             match file.write_all(final_content.as_bytes()) {
                 Err(why) => panic!("Couldn't write to {}.asm: {}", class_name, why),
@@ -75,7 +80,9 @@ fn string_label(string: &String) -> String {
 
 pub struct Assembly {
     jumps: HashSet<usize>,
-    strings: HashSet<String>
+    strings: HashSet<String>,
+    variables: HashMap<u8, u8>,
+    register_idx: u8
 }
 
 impl Assembly {
@@ -86,5 +93,16 @@ impl Assembly {
     pub fn add_string(&mut self, string: &String) -> String {
         self.strings.insert(string.clone());
         string_label(&string)
+    }
+
+    pub fn var_to_reg(&mut self, var_idx: u8) -> u8 {
+        match self.variables.get(&var_idx) {
+            Some(reg) => *reg,
+            None => {
+                self.register_idx += 1;
+                self.variables.insert(var_idx, self.register_idx);
+                self.register_idx
+            }
+        }
     }
 }
